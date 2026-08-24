@@ -1,8 +1,23 @@
 import { RuleEngine } from '../rules/RuleEngine.js';
 
+const DEFAULT_ROOT = () => document;
+
 export class DragController {
-  constructor(game) {
-    this.game = game;
+  constructor({
+    getLevel,
+    isBlocked = () => false,
+    sound = null,
+    onCorrect = () => {},
+    onWrong = () => {},
+    root = DEFAULT_ROOT(),
+  }) {
+    this.getLevel = getLevel;
+    this.isBlocked = isBlocked;
+    this.sound = sound;
+    this.onCorrect = onCorrect;
+    this.onWrong = onWrong;
+    this.root = root;
+
     this.dragItem = null;
     this.dragEl = null;
     this.offsetX = 0;
@@ -19,22 +34,23 @@ export class DragController {
     this.onMove = this.onPointerMove.bind(this);
     this.onUp = this.onPointerUp.bind(this);
 
-    document.addEventListener('pointerdown', this.onDown);
-    document.addEventListener('pointermove', this.onMove);
-    document.addEventListener('pointerup', this.onUp);
-    document.addEventListener('pointercancel', this.onUp);
+    this.root.addEventListener('pointerdown', this.onDown);
+    this.root.addEventListener('pointermove', this.onMove);
+    this.root.addEventListener('pointerup', this.onUp);
+    this.root.addEventListener('pointercancel', this.onUp);
   }
 
   pause() {
     this.isPaused = true;
-
-    if (this.isDragging) {
-      this.cancelDrag();
-    }
+    if (this.isDragging) this.cancelDrag();
   }
 
   resume() {
     this.isPaused = false;
+  }
+
+  getLevel() {
+    return this.getLevel?.() ?? null;
   }
 
   cancelDrag() {
@@ -52,150 +68,146 @@ export class DragController {
     this.isDragging = false;
     this.dragEl = null;
     this.dragItem = null;
+    this.originalParent = null;
+    this.originalNext = null;
   }
 
-  onPointerDown(e) {
-    if (this.isPaused || this.game.isTransitioning) return;
+  onPointerDown(event) {
+    if (this.isPaused || this.isBlocked()) return;
 
-    const item = e.target.closest('.book-item');
+    const item = event.target.closest('.book-item');
     if (!item || item.classList.contains('correct')) return;
 
-    e.preventDefault();
+    const level = this.getLevel();
+    const object = level?.objects?.find(({ uid }) => uid === item.dataset.uid);
+    if (!object) return;
 
-    this.dragItem = this.game.currentLevel.objects.find(o => o.uid === item.dataset.uid);
-    if (!this.dragItem) return;
+    event.preventDefault();
 
+    this.dragItem = object;
     this.dragEl = item;
     this.originalParent = item.parentNode;
     this.originalNext = item.nextSibling;
 
     const rect = item.getBoundingClientRect();
-    this.offsetX = e.clientX - rect.left;
-    this.offsetY = e.clientY - rect.top;
-
-    this.startX = e.clientX;
-    this.startY = e.clientY;
+    this.offsetX = event.clientX - rect.left;
+    this.offsetY = event.clientY - rect.top;
+    this.startX = event.clientX;
+    this.startY = event.clientY;
     this.hasMoved = false;
     this.isDragging = true;
 
     item.classList.add('dragging');
     document.body.appendChild(item);
-
-    this.updatePosition(e.clientX, e.clientY);
-
-    this.game.sound.playPick();
+    this.updatePosition(event.clientX, event.clientY);
+    this.sound?.playPick();
   }
 
-  onPointerMove(e) {
+  onPointerMove(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
 
-    e.preventDefault();
+    event.preventDefault();
 
-    const dx = e.clientX - this.startX;
-    const dy = e.clientY - this.startY;
-
+    const dx = event.clientX - this.startX;
+    const dy = event.clientY - this.startY;
     if (!this.hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
       this.hasMoved = true;
     }
 
-    this.updatePosition(e.clientX, e.clientY);
-    this.updateContainerHighlights(e.clientX, e.clientY);
+    this.updatePosition(event.clientX, event.clientY);
+    this.updateContainerHighlights(event.clientX, event.clientY);
   }
 
-  onPointerUp(e) {
+  onPointerUp(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
 
-    e.preventDefault();
+    event.preventDefault();
 
     if (!this.hasMoved) {
       this.cancelDrag();
       return;
     }
 
-    const targetContainer = this.findTargetContainer(e.clientX, e.clientY);
-
+    const target = this.findTargetContainer(event.clientX, event.clientY);
     this.clearContainerHighlights();
 
-    if (
-      targetContainer &&
-      targetContainer.container.type !== 'forbidden' &&
-      RuleEngine.evaluate(this.dragItem, targetContainer.container.rule)
-    ) {
-      this.game.handleCorrect(this.dragItem, this.dragEl, targetContainer.element);
-    } else {
-      this.game.handleWrong(this.dragEl);
-      this.cancelDrag();
+    if (target && target.container.type !== 'forbidden' && RuleEngine.evaluate(this.dragItem, target.container.rule)) {
+      const item = this.dragItem;
+      const element = this.dragEl;
+      this.clearDragState();
+      this.onCorrect(item, element, target.element);
+      return;
     }
 
+    const element = this.dragEl;
+    this.onWrong(element);
+    this.cancelDrag();
+  }
+
+  clearDragState() {
     this.isDragging = false;
     this.dragEl = null;
     this.dragItem = null;
+    this.originalParent = null;
+    this.originalNext = null;
   }
 
   updatePosition(clientX, clientY) {
     if (!this.dragEl) return;
-
-    this.dragEl.style.left = (clientX - this.offsetX) + 'px';
-    this.dragEl.style.top = (clientY - this.offsetY) + 'px';
+    this.dragEl.style.left = `${clientX - this.offsetX}px`;
+    this.dragEl.style.top = `${clientY - this.offsetY}px`;
   }
 
   updateContainerHighlights(clientX, clientY) {
-    document.querySelectorAll('.shelf-container').forEach(containerEl => {
+    this.root.querySelectorAll('.shelf-container').forEach(containerEl => {
       containerEl.classList.remove('highlight', 'reject');
 
       const rect = containerEl.getBoundingClientRect();
-      if (this.isPointInRect(clientX, clientY, rect)) {
-        const container = this.game.currentLevel.containers.find(
-          c => c.id === containerEl.dataset.id
-        );
+      if (!this.isPointInRect(clientX, clientY, rect)) return;
 
-        if (container) {
-          if (container.type === 'forbidden') {
-            containerEl.classList.add('reject');
-          } else if (RuleEngine.evaluate(this.dragItem, container.rule)) {
-            containerEl.classList.add('highlight');
-          } else {
-            containerEl.classList.add('reject');
-          }
-        }
+      const level = this.getLevel();
+      const container = level?.containers?.find(({ id }) => id === containerEl.dataset.id);
+      if (!container) return;
+
+      if (container.type === 'forbidden') {
+        containerEl.classList.add('reject');
+      } else if (RuleEngine.evaluate(this.dragItem, container.rule)) {
+        containerEl.classList.add('highlight');
+      } else {
+        containerEl.classList.add('reject');
       }
     });
   }
 
   clearContainerHighlights() {
-    document.querySelectorAll('.shelf-container').forEach(containerEl => {
+    this.root.querySelectorAll('.shelf-container').forEach(containerEl => {
       containerEl.classList.remove('highlight', 'reject');
     });
   }
 
   findTargetContainer(clientX, clientY) {
-    for (const containerEl of document.querySelectorAll('.shelf-container')) {
-      const rect = containerEl.getBoundingClientRect();
-      if (this.isPointInRect(clientX, clientY, rect)) {
-        const container = this.game.currentLevel.containers.find(
-          c => c.id === containerEl.dataset.id
-        );
-        if (container) {
-          return { container, element: containerEl };
-        }
-      }
+    const level = this.getLevel();
+    if (!level) return null;
+
+    for (const element of this.root.querySelectorAll('.shelf-container')) {
+      if (!this.isPointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
+
+      const container = level.containers.find(({ id }) => id === element.dataset.id);
+      if (container) return { container, element };
     }
+
     return null;
   }
 
   isPointInRect(x, y, rect) {
-    return x >= rect.left && x <= rect.right &&
-      y >= rect.top && y <= rect.bottom;
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 
   destroy() {
-    document.removeEventListener('pointerdown', this.onDown);
-    document.removeEventListener('pointermove', this.onMove);
-    document.removeEventListener('pointerup', this.onUp);
-    document.removeEventListener('pointercancel', this.onUp);
-
-    if (this.dragEl) {
-      this.cancelDrag();
-    }
+    this.root.removeEventListener('pointerdown', this.onDown);
+    this.root.removeEventListener('pointermove', this.onMove);
+    this.root.removeEventListener('pointerup', this.onUp);
+    this.root.removeEventListener('pointercancel', this.onUp);
+    this.cancelDrag();
   }
 }
