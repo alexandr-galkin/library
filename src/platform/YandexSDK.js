@@ -1,5 +1,6 @@
 let sdkPromise = null;
 let sdk = null;
+let playerPromise = null;
 
 function loadSDK() {
   if (sdkPromise) return sdkPromise;
@@ -34,9 +35,51 @@ export async function markGameReady() {
   ysdk?.features?.LoadingAPI?.ready?.();
 }
 
+async function getPlayer() {
+  if (playerPromise) return playerPromise;
+  const ysdk = sdk ?? await initYandexSDK();
+  if (!ysdk?.getPlayer) return null;
+  playerPromise = ysdk.getPlayer().catch(error => {
+    console.warn('[Yandex SDK] player init failed:', error);
+    playerPromise = null;
+    return null;
+  });
+  return playerPromise;
+}
+
+export async function loadCloudSave() {
+  const player = await getPlayer();
+  if (!player) return null;
+  try {
+    const data = await player.getData(['library-game']);
+    return data?.['library-game'] ?? null;
+  } catch (error) {
+    console.warn('[Yandex SDK] cloud load failed:', error);
+    return null;
+  }
+}
+
+export async function saveCloud(data, flush = true) {
+  const player = await getPlayer();
+  if (!player) return false;
+  try {
+    await player.setData({ 'library-game': data }, flush);
+    return true;
+  } catch (error) {
+    console.warn('[Yandex SDK] cloud save failed:', error);
+    return false;
+  }
+}
+
+export function resetYandexPlayer() {
+  playerPromise = null;
+}
+
 function setupPlatformEvents(ysdk) {
   ysdk.on?.('game_api_pause', () => window.dispatchEvent(new Event('yandex-game-pause')));
   ysdk.on?.('game_api_resume', () => window.dispatchEvent(new Event('yandex-game-resume')));
+  ysdk.on?.('account_selection_dialog_opened', () => resetYandexPlayer());
+  ysdk.on?.('account_selection_dialog_closed', () => resetYandexPlayer());
 }
 
 export async function showFullscreenAd() {
