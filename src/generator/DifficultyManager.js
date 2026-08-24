@@ -4,7 +4,7 @@ const clampDifficulty = level => Math.max(1, Math.floor(Number(level) || 1));
 
 export class DifficultyManager {
   static getDifficulty(level) {
-    return Math.min(LevelConfig.maxDifficulty(), Math.floor((clampDifficulty(level) - 1) / 10) + 1);
+    return Math.min(LevelConfig.maxDifficulty(), Math.floor((clampDifficulty(level) - 1) / 2) + 1);
   }
 
   static getPuzzleConfig(difficulty, level, rng = null) {
