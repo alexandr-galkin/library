@@ -1,7 +1,7 @@
 export class GameStats {
   constructor() {
-    this.resetLevel();
     this.totalScore = 0;
+    this.resetLevel();
   }
 
   resetLevel() {
@@ -12,10 +12,11 @@ export class GameStats {
   }
 
   addCorrect(points) {
+    const value = Math.max(0, Number(points) || 0);
     this.combo += 1;
     this.placed += 1;
-    this.levelScore += points;
-    this.totalScore += points;
+    this.levelScore += value;
+    this.totalScore += value;
   }
 
   addMistake() {
@@ -24,13 +25,15 @@ export class GameStats {
   }
 
   addBonus(points) {
-    this.levelScore += points;
-    this.totalScore += points;
+    const value = Math.max(0, Number(points) || 0);
+    this.levelScore += value;
+    this.totalScore += value;
   }
 
   accuracy(totalObjects) {
-    if (!totalObjects) return 1;
-    return Math.max(0, (totalObjects - this.mistakes) / totalObjects);
+    const total = Math.max(0, Number(totalObjects) || 0);
+    if (total === 0) return 1;
+    return Math.min(1, Math.max(0, (total - this.mistakes) / total));
   }
 
   stars() {
