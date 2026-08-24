@@ -1,16 +1,10 @@
 import { RuleEngine } from '../rules/RuleEngine.js';
 
-const DEFAULT_ROOT = () => document;
+const DRAG_THRESHOLD = 5;
 
 export class DragController {
-  constructor({
-    getLevel,
-    isBlocked = () => false,
-    sound = null,
-    onCorrect = () => {},
-    onWrong = () => {},
-    root = DEFAULT_ROOT(),
-  }) {
+  constructor({ getLevel, isBlocked = () => false, sound = null, onCorrect = () => {}, onWrong = () => {}, root = document } = {}) {
+    if (typeof getLevel !== 'function') throw new TypeError('DragController requires getLevel()');
     this.getLevel = getLevel;
     this.isBlocked = isBlocked;
     this.sound = sound;
@@ -19,67 +13,41 @@ export class DragController {
     this.root = root;
     this.dragItem = null;
     this.dragEl = null;
-    this.offsetX = 0;
-    this.offsetY = 0;
     this.originalParent = null;
     this.originalNext = null;
-    this.isDragging = false;
-    this.isPaused = false;
+    this.offsetX = 0;
+    this.offsetY = 0;
     this.startX = 0;
     this.startY = 0;
+    this.isDragging = false;
+    this.isPaused = false;
     this.hasMoved = false;
 
-    this.onDown = this.onPointerDown.bind(this);
-    this.onMove = this.onPointerMove.bind(this);
-    this.onUp = this.onPointerUp.bind(this);
-
+    this.onDown = event => this.onPointerDown(event);
+    this.onMove = event => this.onPointerMove(event);
+    this.onUp = event => this.onPointerUp(event);
     this.root.addEventListener('pointerdown', this.onDown);
     this.root.addEventListener('pointermove', this.onMove);
     this.root.addEventListener('pointerup', this.onUp);
     this.root.addEventListener('pointercancel', this.onUp);
   }
 
-  pause() {
-    this.isPaused = true;
-    if (this.isDragging) this.cancelDrag();
-  }
-
-  resume() {
-    this.isPaused = false;
-  }
-
-  cancelDrag() {
-    if (this.dragEl) {
-      this.dragEl.classList.remove('dragging');
-      this.dragEl.style.left = '';
-      this.dragEl.style.top = '';
-
-      if (this.originalParent && this.dragEl.parentNode !== this.originalParent) {
-        this.originalParent.insertBefore(this.dragEl, this.originalNext);
-      }
-    }
-
-    this.clearContainerHighlights();
-    this.clearDragState();
-  }
+  pause() { this.isPaused = true; this.cancelDrag(); }
+  resume() { this.isPaused = false; }
 
   onPointerDown(event) {
     if (this.isPaused || this.isBlocked()) return;
-
-    const item = event.target.closest('.book-item');
+    const item = event.target.closest?.('.book-item');
     if (!item || item.classList.contains('correct')) return;
-
-    const level = this.getLevel();
-    const object = level?.objects?.find(({ uid }) => uid === item.dataset.uid);
+    const object = this.getLevel()?.objects?.find(({ uid }) => uid === item.dataset.uid);
     if (!object) return;
 
     event.preventDefault();
+    const rect = item.getBoundingClientRect();
     this.dragItem = object;
     this.dragEl = item;
     this.originalParent = item.parentNode;
     this.originalNext = item.nextSibling;
-
-    const rect = item.getBoundingClientRect();
     this.offsetX = event.clientX - rect.left;
     this.offsetY = event.clientY - rect.top;
     this.startX = event.clientX;
@@ -88,7 +56,7 @@ export class DragController {
     this.isDragging = true;
 
     item.classList.add('dragging');
-    document.body.appendChild(item);
+    this.root.body?.appendChild(item);
     this.updatePosition(event.clientX, event.clientY);
     this.sound?.playPick();
   }
@@ -96,11 +64,9 @@ export class DragController {
   onPointerMove(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
     event.preventDefault();
-
     const dx = event.clientX - this.startX;
     const dy = event.clientY - this.startY;
-    if (!this.hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) this.hasMoved = true;
-
+    if (!this.hasMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD) this.hasMoved = true;
     this.updatePosition(event.clientX, event.clientY);
     this.updateContainerHighlights(event.clientX, event.clientY);
   }
@@ -108,16 +74,12 @@ export class DragController {
   onPointerUp(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
     event.preventDefault();
-
-    if (!this.hasMoved) {
-      this.cancelDrag();
-      return;
-    }
+    if (!this.hasMoved) return this.cancelDrag();
 
     const target = this.findTargetContainer(event.clientX, event.clientY);
     this.clearContainerHighlights();
-
-    if (target && target.container.type !== 'forbidden' && RuleEngine.evaluate(this.dragItem, target.container.rule)) {
+    const valid = target && target.container.type !== 'forbidden' && RuleEngine.evaluate(this.dragItem, target.container.rule);
+    if (valid) {
       const item = this.dragItem;
       const element = this.dragEl;
       this.clearDragState();
@@ -130,47 +92,55 @@ export class DragController {
     this.cancelDrag();
   }
 
+  cancelDrag() {
+    const element = this.dragEl;
+    if (element) {
+      element.classList.remove('dragging');
+      element.style.left = '';
+      element.style.top = '';
+      if (this.originalParent && element.parentNode !== this.originalParent) {
+        this.originalParent.insertBefore(element, this.originalNext);
+      }
+    }
+    this.clearContainerHighlights();
+    this.clearDragState();
+  }
+
   clearDragState() {
     this.isDragging = false;
     this.dragEl = null;
     this.dragItem = null;
     this.originalParent = null;
     this.originalNext = null;
+    this.hasMoved = false;
   }
 
   updatePosition(clientX, clientY) {
-    if (!this.dragEl) return;
-    this.dragEl.style.left = `${clientX - this.offsetX}px`;
-    this.dragEl.style.top = `${clientY - this.offsetY}px`;
+    if (this.dragEl) {
+      this.dragEl.style.left = `${clientX - this.offsetX}px`;
+      this.dragEl.style.top = `${clientY - this.offsetY}px`;
+    }
   }
 
   updateContainerHighlights(clientX, clientY) {
     const level = this.getLevel();
-    if (!level) return;
-
-    this.root.querySelectorAll('.shelf-container').forEach(containerEl => {
-      containerEl.classList.remove('highlight', 'reject');
-      if (!this.isPointInRect(clientX, clientY, containerEl.getBoundingClientRect())) return;
-
-      const container = level.containers.find(({ id }) => id === containerEl.dataset.id);
-      if (!container) return;
-
-      if (container.type === 'forbidden') containerEl.classList.add('reject');
-      else if (RuleEngine.evaluate(this.dragItem, container.rule)) containerEl.classList.add('highlight');
-      else containerEl.classList.add('reject');
-    });
+    if (!level || !this.dragItem) return;
+    for (const element of this.root.querySelectorAll('.shelf-container')) {
+      element.classList.remove('highlight', 'reject');
+      if (!this.isPointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
+      const container = level.containers.find(({ id }) => id === element.dataset.id);
+      if (!container) continue;
+      element.classList.add(container.type === 'forbidden' || !RuleEngine.evaluate(this.dragItem, container.rule) ? 'reject' : 'highlight');
+    }
   }
 
   clearContainerHighlights() {
-    this.root.querySelectorAll('.shelf-container').forEach(containerEl => {
-      containerEl.classList.remove('highlight', 'reject');
-    });
+    this.root.querySelectorAll('.shelf-container').forEach(element => element.classList.remove('highlight', 'reject'));
   }
 
   findTargetContainer(clientX, clientY) {
     const level = this.getLevel();
     if (!level) return null;
-
     for (const element of this.root.querySelectorAll('.shelf-container')) {
       if (!this.isPointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
       const container = level.containers.find(({ id }) => id === element.dataset.id);
@@ -179,15 +149,13 @@ export class DragController {
     return null;
   }
 
-  isPointInRect(x, y, rect) {
-    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-  }
+  isPointInRect(x, y, rect) { return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom; }
 
   destroy() {
+    this.cancelDrag();
     this.root.removeEventListener('pointerdown', this.onDown);
     this.root.removeEventListener('pointermove', this.onMove);
     this.root.removeEventListener('pointerup', this.onUp);
     this.root.removeEventListener('pointercancel', this.onUp);
-    this.cancelDrag();
   }
 }
