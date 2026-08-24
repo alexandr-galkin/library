@@ -27,8 +27,8 @@ export class Game {
     this.theme = new ThemeManager().current;
     this.sound = new SoundManager({ windowRef });
     this.particles = new ParticleSystem({ documentRef, windowRef });
-    this.timer = new GameTimer({ onTick: seconds => this.handleTimerTick(seconds), onComplete: () => this.handleFail() });
-    this.session = new GameSession({ state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, generateLevel: level => ProceduralLevelGenerator.generate(level, this.theme), onLevelLoaded: level => this.mountLevel(level), onComplete: level => this.finishLevel(level), onFail: () => this.showFailure() });
+    this.timer = new GameTimer({ onTick: () => {}, onComplete: () => {} });
+    this.session = new GameSession({ state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, generateLevel: level => ProceduralLevelGenerator.generate(level, this.theme), onLevelLoaded: level => this.mountLevel(level), onComplete: level => this.finishLevel(level), onFail: () => {} });
     this.drag = null;
     this.ui = null;
     this.completionTimeout = null;
@@ -71,7 +71,10 @@ export class Game {
   }
 
   handleVisibilityChange() {
-    if (this.document.hidden && this.session.active && !this.session.transitioning && !this.session.isPaused) { this.pauseGame(); this.ui?.showPauseMenu(); }
+    if (this.document.hidden && this.session.active && !this.session.transitioning && !this.session.isPaused) {
+      this.pauseGame();
+      this.ui?.showPauseMenu();
+    }
   }
 
   pauseGame() { if (this.session.pause()) this.drag?.pause(); }
@@ -88,12 +91,11 @@ export class Game {
   mountLevel(level) {
     this.cleanupLevel();
     this.ui = new GameUI({ app: this.app, theme: this.theme, documentRef: this.document, actions: { onPause: () => { this.pauseGame(); this.ui?.showPauseMenu(); }, onRetry: () => this.retryLevel(), onResume: () => this.resumeGame(), onSettings: () => this.showSettingsFromGame(), onMenu: () => this.showMenu() } });
-    this.drag = new DragController({ getLevel: () => this.currentLevel, isBlocked: () => this.isTransitioning || this.isPaused || this.session.status === 'FAILED', sound: this.sound, root: this.document, onCorrect: (object, element, container) => this.handleCorrect(object, element, container), onWrong: element => this.handleWrong(element) });
-    this.ui.updateHUD(level.id, level.difficulty, this.score);
+    this.drag = new DragController({ getLevel: () => this.currentLevel, isBlocked: () => this.isTransitioning || this.isPaused, sound: this.sound, root: this.document, onCorrect: (object, element, container) => this.handleCorrect(object, element, container), onWrong: element => this.handleWrong(element) });
+    this.ui.updateHUD(level.id, level.difficulty, this.score, level.moves);
     this.ui.setRule(level.ruleText, this.theme.displayName);
     this.ui.renderObjects(level.objects);
-    this.ui.renderContainers(level.containers);
-    if (level.timeLimit) this.ui.showTimer(level.timeLimit); else this.ui.hideTimer();
+    this.ui.renderContainers(level.containers, level.objects);
   }
 
   cleanupLevel() {
@@ -108,52 +110,50 @@ export class Game {
   retryLevel() { this.session.retry(); }
   nextLevel() { this.session.next(); }
 
-  handleTimerTick(seconds) {
-    this.ui?.updateTimer(seconds, seconds <= 5);
-    if (seconds > 0 && seconds <= 5) this.sound.playTimerWarning();
-  }
-
   handleCorrect(object, element, containerElement) {
-    if (this.isTransitioning || this.isPaused || !this.session.isPlaying || element.classList.contains('correct')) return;
-    const points = ScoreCalculator.pointsForCombo(this.combo + 1);
+    if (this.isTransitioning || this.isPaused || !this.session.isPlaying) return;
+    const level = this.currentLevel;
+    const points = Math.max(1, 100 - level.moves * 2);
     this.stats.addCorrect(points);
-    this.ui.updateHUD(this.currentLevel.id, this.currentLevel.difficulty, this.score);
-    this.ui.moveToContainer(element, containerElement);
-    element.classList.add('correct');
+    level.moves += 1;
+    this.ui.moveToContainer(element, containerElement, level);
+    this.ui.updateHUD(level.id, level.difficulty, this.score, level.moves);
     const rect = containerElement.getBoundingClientRect();
-    this.particles.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, '#c9a227', 14);
-    this.ui.showPopup(rect.left + rect.width / 2, rect.top, `+${points}`);
-    if (this.combo >= 2) this.ui.showCombo(this.combo);
-    if (this.combo >= 3) this.sound.playCombo(); else this.sound.playCorrect();
-    this.window.setTimeout(() => element.remove(), 500);
-    if (this.placed >= this.currentLevel.objects.length && this.session.markCompleting()) this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 600);
+    this.particles.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, '#c9a227', 8);
+    this.ui.showPopup(rect.left + rect.width / 2, rect.top, `ХОД ${level.moves}`);
+    this.sound.playCorrect();
+
+    if (this.ui.isSolved(level) && this.session.markCompleting()) {
+      this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 500);
+    }
   }
 
   handleWrong(element) {
-    if (this.isPaused || !this.session.isPlaying || element.classList.contains('correct')) return;
+    if (this.isPaused || !this.session.isPlaying) return;
     this.stats.addMistake();
     this.ui?.hideCombo();
     element.classList.add('shake');
-    this.window.setTimeout(() => element.classList.remove('shake'), 400);
+    this.window.setTimeout(() => element.classList.remove('shake'), 300);
     this.sound.playWrong();
   }
 
   finishLevel(level) {
     this.sound.playLevelComplete();
-    const timeBonus = ScoreCalculator.timeBonus(this.timer.remaining, Boolean(level.timeLimit));
+    const moveBonus = ScoreCalculator.timeBonus(Math.max(0, 120 - level.moves), true);
     const accuracyBonus = ScoreCalculator.accuracyBonus(this.stats.accuracy(level.objects.length));
-    this.stats.addBonus(timeBonus + accuracyBonus);
+    this.stats.addBonus(moveBonus + accuracyBonus);
     this.state.data.totalScore = this.score;
     this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score);
     this.state.save();
     this.menu.render();
     this.particles.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30);
-    this.levelComplete.show(level.id, this.levelScore, this.combo, this.mistakes, timeBonus, accuracyBonus, this.stats.stars());
+    this.levelComplete.show(level.id, this.levelScore, this.combo, this.mistakes, moveBonus, accuracyBonus, this.stats.stars());
     this.completionTimeout = null;
   }
 
-  handleFail() { if (this.session.fail()) this.drag?.pause(); }
-  showFailure() { this.ui?.showFail(); this.sound.playWrong(); }
+  handleTimerTick() {}
+  handleFail() {}
+  showFailure() {}
 
   showMenu() {
     this.session.stop();
