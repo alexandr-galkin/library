@@ -3,7 +3,6 @@ import { GameStats } from '../core/GameStats.js';
 import { GameTimer } from '../core/GameTimer.js';
 import { LocalStorageRepository } from '../persistence/LocalStorageRepository.js';
 import { ThemeManager } from '../themes/ThemeManager.js';
-import { PuzzleTheme } from '../themes/PuzzleTheme.js';
 import { LevelManager } from './LevelManager.js';
 import { GameEngine } from './GameEngine.js';
 import { LayoutManager } from '../ui/LayoutManager.js';
@@ -23,8 +22,8 @@ export class Game {
     this.storage = storage ?? this.window.localStorage;
     this.state = new GameState(new LocalStorageRepository(this.storage, 'library-game', ['chaosGame_v2']));
     this.stats = new GameStats();
-    this.themeManager = new ThemeManager();
-    this.theme = new PuzzleTheme({ documentRef });
+    this.themeManager = new ThemeManager({ documentRef });
+    this.theme = this.themeManager.current;
     this.sound = new SoundManager({ windowRef });
     this.particles = new ParticleSystem({ documentRef, windowRef });
     this.timer = new GameTimer({ onTick: () => {}, onComplete: () => {} });
@@ -93,6 +92,20 @@ export class Game {
       this.sound.init();
       this.sound.playPick();
     }
+  }
+
+  /** Switch theme styles without reloading the page. @param {string} name @returns {boolean} */
+  setTheme(name) {
+    const next = this.themeManager.getTheme(name);
+    if (!next || next === this.theme) return false;
+    this.themeCleanup?.();
+    this.theme = next;
+    this.themeCleanup = this.theme.install();
+    this.themeManager.setTheme(name);
+    this.engine.theme = this.theme;
+    this.levelManager.theme = this.theme;
+    if (this.engine.level) this.engine.mountLevel(this.engine.level);
+    return true;
   }
 
   /** Pause automatically when the document becomes hidden. */
