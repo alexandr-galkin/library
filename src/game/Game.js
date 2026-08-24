@@ -4,6 +4,7 @@ import { GameTimer } from '../core/GameTimer.js';
 import { ScoreCalculator } from '../core/ScoreCalculator.js';
 import { LocalStorageRepository } from '../persistence/LocalStorageRepository.js';
 import { ThemeManager } from '../themes/ThemeManager.js';
+import { installLibraryVisuals } from '../themes/library/LibraryVisuals.js';
 import { ProceduralLevelGenerator } from '../generator/ProceduralLevelGenerator.js';
 import { SoundManager } from '../audio/SoundManager.js';
 import { ParticleSystem } from '../rendering/ParticleSystem.js';
@@ -52,6 +53,7 @@ export class Game {
     this.levelComplete = new LevelComplete({ onNextLevel: () => this.nextLevel() });
 
     this.theme.injectStyles();
+    installLibraryVisuals(this.document);
     this.app.append(this.menu.container, this.settings.container);
     this.menu.show();
     this.settings.hide();
