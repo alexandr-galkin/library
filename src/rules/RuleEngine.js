@@ -1,101 +1,73 @@
+const VALUE_OPERATORS = Object.freeze({
+  eq: (value, expected) => value === expected,
+  ne: (value, expected) => value !== expected,
+  gt: (value, expected) => value > expected,
+  lt: (value, expected) => value < expected,
+  gte: (value, expected) => value >= expected,
+  lte: (value, expected) => value <= expected,
+  contains: (value, expected) => typeof value === 'string' && value.includes(expected),
+  startsWith: (value, expected) => typeof value === 'string' && value.startsWith(expected),
+  endsWith: (value, expected) => typeof value === 'string' && value.endsWith(expected),
+});
+
+const COLLECTION_OPERATORS = Object.freeze({
+  in: (value, values) => values.includes(value),
+  nin: (value, values) => !values.includes(value),
+});
+
 export class RuleEngine {
-  static evaluate(obj, rule) {
-    if (!rule) return true;
-    
-    if (rule.type === 'and') {
-      return rule.rules.every(r => this.evaluate(obj, r));
-    }
-    
-    if (rule.type === 'or') {
-      return rule.rules.some(r => this.evaluate(obj, r));
-    }
-    
-    if (rule.type === 'not') {
-      return !this.evaluate(obj, rule.rule);
-    }
-    
-    const val = obj[rule.field];
-    
-    switch (rule.op) {
-      case 'eq': return val === rule.value;
-      case 'ne': return val !== rule.value;
-      case 'gt': return val > rule.value;
-      case 'lt': return val < rule.value;
-      case 'gte': return val >= rule.value;
-      case 'lte': return val <= rule.value;
-      case 'in': return rule.values && rule.values.includes(val);
-      case 'nin': return rule.values && !rule.values.includes(val);
-      case 'contains': return val && val.includes(rule.value);
-      case 'startsWith': return val && val.startsWith(rule.value);
-      case 'endsWith': return val && val.endsWith(rule.value);
-      default: return false;
+  static evaluate(object, rule) {
+    if (!rule || typeof rule !== 'object') return true;
+    switch (rule.type) {
+      case 'and': return this.evaluateGroup(object, rule.rules, true);
+      case 'or': return this.evaluateGroup(object, rule.rules, false);
+      case 'not': return this.validateRule(rule.rule) && !this.evaluate(object, rule.rule);
+      default: return this.evaluateLeaf(object, rule);
     }
   }
 
-  static describe(rule, labels) {
+  static evaluateGroup(object, rules, every) {
+    if (!Array.isArray(rules) || rules.length === 0) return false;
+    return every ? rules.every(rule => this.evaluate(object, rule)) : rules.some(rule => this.evaluate(object, rule));
+  }
+
+  static evaluateLeaf(object, rule) {
+    if (!object || !this.validateRule(rule)) return false;
+    const value = object[rule.field];
+    if (VALUE_OPERATORS[rule.op]) return VALUE_OPERATORS[rule.op](value, rule.value);
+    if (COLLECTION_OPERATORS[rule.op]) return COLLECTION_OPERATORS[rule.op](value, rule.values);
+    return false;
+  }
+
+  static describe(rule, labels = {}) {
     if (!rule) return 'Любая';
-    
-    if (rule.type === 'and') {
-      return rule.rules.map(r => this.describe(r, labels)).join(' и ');
-    }
-    
-    if (rule.type === 'or') {
-      return rule.rules.map(r => this.describe(r, labels)).join(' или ');
-    }
-    
-    if (rule.type === 'not') {
-      return 'не ' + this.describe(rule.rule, labels);
-    }
-    
-    const val = rule.valueLabel || 
-                (labels && labels[rule.field] && labels[rule.field][rule.value]) || 
-                rule.value;
-    
-    switch (rule.op) {
-      case 'eq': return val;
-      case 'ne': return 'не ' + val;
-      case 'gt': return 'больше ' + rule.value;
-      case 'lt': return 'меньше ' + rule.value;
-      case 'gte': return 'больше или равно ' + rule.value;
-      case 'lte': return 'меньше или равно ' + rule.value;
-      case 'in': return rule.valuesLabel?.join(', ') || rule.values.join(', ');
-      case 'nin': return 'не ' + (rule.valuesLabel?.join(', ') || rule.values.join(', '));
-      default: return '';
-    }
+    if (rule.type === 'and') return rule.rules.map(item => this.describe(item, labels)).join(' и ');
+    if (rule.type === 'or') return rule.rules.map(item => this.describe(item, labels)).join(' или ');
+    if (rule.type === 'not') return `не ${this.describe(rule.rule, labels)}`;
+    const value = rule.valueLabel ?? labels[rule.field]?.[rule.value] ?? rule.value;
+    const descriptions = {
+      eq: () => String(value),
+      ne: () => `не ${value}`,
+      gt: () => `больше ${rule.value}`,
+      lt: () => `меньше ${rule.value}`,
+      gte: () => `больше или равно ${rule.value}`,
+      lte: () => `меньше или равно ${rule.value}`,
+      in: () => rule.valuesLabel?.join(', ') || rule.values.join(', '),
+      nin: () => `не ${rule.valuesLabel?.join(', ') || rule.values.join(', ')}`,
+      contains: () => `содержит ${rule.value}`,
+      startsWith: () => `начинается с ${rule.value}`,
+      endsWith: () => `заканчивается на ${rule.value}`,
+    };
+    return descriptions[rule.op]?.() || '';
   }
 
   static validateRule(rule) {
-    if (!rule || typeof rule !== 'object') {
-      return false;
-    }
-    
-    if (rule.type === 'and' || rule.type === 'or') {
-      return Array.isArray(rule.rules) && 
-             rule.rules.length > 0 && 
-             rule.rules.every(r => this.validateRule(r));
-    }
-    
-    if (rule.type === 'not') {
-      return this.validateRule(rule.rule);
-    }
-    
-    if (!rule.field || !rule.op) {
-      return false;
-    }
-    
-    switch (rule.op) {
-      case 'eq':
-      case 'ne':
-      case 'gt':
-      case 'lt':
-      case 'gte':
-      case 'lte':
-        return rule.value !== undefined;
-      case 'in':
-      case 'nin':
-        return Array.isArray(rule.values) && rule.values.length > 0;
-      default:
-        return false;
-    }
+    if (!rule || typeof rule !== 'object' || Array.isArray(rule)) return false;
+    if (rule.type === 'and' || rule.type === 'or') return Array.isArray(rule.rules) && rule.rules.length > 0 && rule.rules.every(item => this.validateRule(item));
+    if (rule.type === 'not') return this.validateRule(rule.rule);
+    if (typeof rule.field !== 'string' || !rule.field || typeof rule.op !== 'string') return false;
+    if (VALUE_OPERATORS[rule.op]) return rule.value !== undefined;
+    if (COLLECTION_OPERATORS[rule.op]) return Array.isArray(rule.values) && rule.values.length > 0;
+    return false;
   }
 }

@@ -1,85 +1,79 @@
+import { LocalStorageRepository } from '../persistence/LocalStorageRepository.js';
+
+const DEFAULT_STATE = Object.freeze({
+  currentLevel: 1,
+  bestScore: 0,
+  totalScore: 0,
+  settings: Object.freeze({ sound: true, anim: true, reduced: false }),
+});
+
+const SETTING_KEYS = Object.freeze(['sound', 'anim', 'reduced']);
+
 export class GameState {
-  constructor() {
+  constructor(repository = new LocalStorageRepository()) {
+    this.repository = repository;
     this.data = this.load();
   }
 
   load() {
-    try {
-      const saved = JSON.parse(localStorage.getItem('chaosGame_v2'));
-      return this.validateAndMerge(saved);
-    } catch {
-      return this.defaults();
-    }
+    return this.validate(this.repository.load());
   }
 
-  validateAndMerge(saved) {
+  validate(saved) {
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return this.defaults();
     const defaults = this.defaults();
-    if (!saved || typeof saved !== 'object') return defaults;
-    
     return {
-      currentLevel: this.validateNumber(saved.currentLevel, defaults.currentLevel, 1, 9999),
-      bestScore: this.validateNumber(saved.bestScore, defaults.bestScore, 0, Infinity),
-      totalScore: this.validateNumber(saved.totalScore, defaults.totalScore, 0, Infinity),
+      currentLevel: this.number(saved.currentLevel, defaults.currentLevel, 1, 9999),
+      bestScore: this.number(saved.bestScore, defaults.bestScore, 0, Number.MAX_SAFE_INTEGER),
+      totalScore: this.number(saved.totalScore, defaults.totalScore, 0, Number.MAX_SAFE_INTEGER),
       settings: this.validateSettings(saved.settings, defaults.settings),
     };
   }
 
-  validateNumber(value, defaultValue, min, max) {
-    const num = Number(value);
-    if (isNaN(num) || num < min || num > max) return defaultValue;
-    return Math.floor(num);
+  number(value, fallback, min, max) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= min && number <= max ? Math.floor(number) : fallback;
   }
 
   validateSettings(saved, defaults) {
-    if (!saved || typeof saved !== 'object') return defaults;
-    
-    return {
-      sound: typeof saved.sound === 'boolean' ? saved.sound : defaults.sound,
-      anim: typeof saved.anim === 'boolean' ? saved.anim : defaults.anim,
-      reduced: typeof saved.reduced === 'boolean' ? saved.reduced : defaults.reduced,
-    };
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { ...defaults };
+    return Object.fromEntries(SETTING_KEYS.map(key => [
+      key,
+      typeof saved[key] === 'boolean' ? saved[key] : defaults[key],
+    ]));
   }
 
   defaults() {
     return {
-      currentLevel: 1,
-      bestScore: 0,
-      totalScore: 0,
-      settings: {
-        sound: true,
-        anim: true,
-        reduced: false,
-      },
+      currentLevel: DEFAULT_STATE.currentLevel,
+      bestScore: DEFAULT_STATE.bestScore,
+      totalScore: DEFAULT_STATE.totalScore,
+      settings: { ...DEFAULT_STATE.settings },
     };
   }
 
-  save() {
-    try {
-      localStorage.setItem('chaosGame_v2', JSON.stringify(this.data));
-    } catch (e) {
-      console.warn('Failed to save game state:', e);
-    }
-  }
+  save() { return this.repository.save(this.data); }
 
-  get(key) {
-    return this.data[key];
-  }
+  get(key) { return this.data[key]; }
 
   set(key, value) {
+    if (!(key in this.data)) return false;
     this.data[key] = value;
-    this.save();
+    return this.save();
   }
 
   updateSettings(settings) {
-    this.data.settings = {
-      ...this.data.settings,
-      ...settings,
-    };
-    this.save();
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return false;
+    const next = {};
+    for (const key of SETTING_KEYS) {
+      if (typeof settings[key] === 'boolean') next[key] = settings[key];
+    }
+    this.data.settings = { ...this.data.settings, ...next };
+    return this.save();
   }
 
   reset() {
     this.data = this.defaults();
-    this.save();
+    return this.save();
   }
 }
