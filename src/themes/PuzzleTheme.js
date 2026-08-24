@@ -39,12 +39,11 @@ export class PuzzleTheme {
       .hud-item { font-family:Georgia,serif; font-size:.75rem; letter-spacing:1.5px; color:#ad9878; text-transform:uppercase; }
       .hud-item span { color:#f0ddbb; }
 
-      /* Unified game controls: no browser-default button appearance. */
       .menu-button, .menu-btn, .level-complete-card button { appearance:none; -webkit-appearance:none; border:1px solid rgba(183,150,92,.42); border-radius:4px; background:linear-gradient(180deg,rgba(84,52,29,.96),rgba(45,27,16,.98)); color:#ead7b4; box-shadow:inset 0 1px rgba(255,231,190,.1),0 5px 14px rgba(0,0,0,.32); font-family:Georgia,'Times New Roman',serif; font-weight:600; letter-spacing:1.2px; cursor:pointer; transition:transform .16s ease,box-shadow .16s ease,background .16s ease,border-color .16s ease; }
       .menu-button:hover, .menu-btn:hover, .level-complete-card button:hover { background:linear-gradient(180deg,#755033,#4b2d1b); border-color:rgba(220,184,119,.72); box-shadow:inset 0 1px rgba(255,240,208,.14),0 7px 20px rgba(0,0,0,.45),0 0 14px rgba(183,150,92,.1); transform:translateY(-1px); }
       .menu-button:active, .menu-btn:active, .level-complete-card button:active { transform:translateY(1px); box-shadow:inset 0 2px 5px rgba(0,0,0,.38),0 2px 7px rgba(0,0,0,.3); }
       .menu-button:focus-visible, .menu-btn:focus-visible, .level-complete-card button:focus-visible { outline:2px solid rgba(220,184,119,.7); outline-offset:3px; }
-      .menu-button { min-height:34px; padding:0 14px; }
+      .menu-button { min-height:44px; padding:8px 14px; font-size:1rem; }
       .menu-btn { min-width:210px; min-height:44px; padding:0 22px; font-size:.82rem; }
       .menu-btn-primary, .level-complete-card button { background:linear-gradient(180deg,#795033,#4d2d1b); color:#f3e5c8; border-color:rgba(205,166,101,.65); }
       .menu-btn-secondary { background:linear-gradient(180deg,rgba(61,37,22,.98),rgba(34,20,12,.98)); color:#cdb991; }
@@ -54,7 +53,7 @@ export class PuzzleTheme {
       .shelf-container { background:linear-gradient(180deg,#603b23,#392014); border:1px solid rgba(193,157,100,.5); border-radius:5px; box-shadow:inset 0 2px rgba(255,225,176,.1),inset 0 -25px 30px rgba(0,0,0,.3),0 14px 30px rgba(0,0,0,.45); }
       .shelf-container::before { content:''; position:absolute; left:-3px; right:-3px; top:-3px; height:12px; background:#805333; border-radius:2px 2px 0 0; box-shadow:0 3px 6px rgba(0,0,0,.5); }
       .shelf-container::after { content:''; position:absolute; left:0; right:0; bottom:2px; height:15px; background:linear-gradient(#805333,#321c11); box-shadow:0 3px 6px #100805; }
-      .book-item { user-select:none; touch-action:none; cursor:grab; transition:transform .16s ease,filter .16s ease; filter:drop-shadow(4px 9px 6px var(--book-shadow)); }
+      .book-item { user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none; cursor:grab; transition:transform .16s ease,filter .16s ease; filter:drop-shadow(4px 9px 6px var(--book-shadow)); }
       .book-item:hover { transform:translateY(-5px) rotate(-1deg); filter:drop-shadow(4px 10px 7px rgba(0,0,0,.65)); }
       .book-item.is-dragging { transform:translateY(-24px) rotate(-3deg) scale(1.04); filter:drop-shadow(8px 22px 14px rgba(0,0,0,.75)); z-index:100; }
       .book-item.correct { animation:bookCorrect .35s forwards; } .book-item.shake { animation:bookShake .4s; }
@@ -66,13 +65,15 @@ export class PuzzleTheme {
       .modal-card { background:linear-gradient(180deg,#f0e3c7,#ded0b0); color:#2b2118; border:1px solid #b89b67; border-radius:5px; box-shadow:0 30px 90px #000,0 0 0 1px rgba(255,239,201,.22); font-family:Georgia,serif; }
       .modal-card .modal-title { letter-spacing:2px; color:#4a301e; text-shadow:0 1px rgba(255,255,255,.45); }
       .modal-card p { color:#765d3f; }
+      .toggle-switch { position:relative; width:52px; height:28px; min-width:52px; cursor:pointer; touch-action:manipulation; }
+      .toggle-switch::before { content:''; position:absolute; inset:-8px; z-index:0; }
+      .toggle-switch > * { position:relative; z-index:1; }
+      @media (prefers-reduced-motion: reduce) {
+        .menu-button, .menu-btn, .level-complete-card button, .book-item { transition:none !important; animation:none !important; }
+      }
     `; }
-  /** Render the library background into a supplied container. */
   renderBackground(container) { const colors=['#7b302e','#355879','#3f6246','#a67b32','#67455f','#68442b','#35312b','#c4b79a']; const books=count=>Array.from({length:count},(_,index)=>`<span style="height:${62+(index%4)*7}%;background:${colors[index%colors.length]}"></span>`).join(''); container.innerHTML=`<div class="library-architecture"><div class="back-wall"></div><div class="bookcase left"><div class="case-top"></div><div class="case-books one">${books(14)}</div><div class="case-books two">${books(16)}</div><div class="case-books three">${books(13)}</div><div class="case-books four">${books(15)}</div><div class="case-books five">${books(12)}</div><div class="case-shelf s1"></div><div class="case-shelf s2"></div><div class="case-shelf s3"></div><div class="case-shelf s4"></div></div><div class="bookcase right"><div class="case-top"></div><div class="case-books one">${books(13)}</div><div class="case-books two">${books(15)}</div><div class="case-books three">${books(14)}</div><div class="case-books four">${books(16)}</div><div class="case-books five">${books(13)}</div><div class="case-shelf s1"></div><div class="case-shelf s2"></div><div class="case-shelf s3"></div><div class="case-shelf s4"></div></div><div class="arch-window"><div class="moon"></div></div><div class="ceiling-lamp"></div><div class="desk"></div></div><div class="library-floor"></div>`; }
-  /** Render a book using the existing SVG asset system. */
   renderBook(book) { const element=this.document.createElement('div'); element.className='book-item'; element.dataset.uid=book.uid; element.innerHTML=createBookSVG(book); element.setAttribute('aria-label',`Книга ${book.color} ${book.size}`); return element; }
-  /** Return user-facing book labels. */
   getBookLabels() { return { color:Object.fromEntries(Object.entries(BOOK_COLORS).map(([key,value])=>[key,value.name])), size:Object.fromEntries(Object.entries(BOOK_SIZES).map(([key,value])=>[key,value.name])), genre:Object.fromEntries(Object.entries(BOOK_GENRES).map(([key,value])=>[key,value.name])), symbol:Object.fromEntries(Object.entries(BOOK_SYMBOLS).map(([key,value])=>[key,value.name])), thickness:Object.fromEntries(Object.entries(BOOK_THICKNESS).map(([key,value])=>[key,value.name])) }; }
-  /** Remove theme styles. */
   destroy() { this.style?.remove(); this.style=null; }
 }
