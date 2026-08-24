@@ -23,12 +23,16 @@ export class Game {
     this.levelManager = new LevelManager({ theme: this.theme }); this.layoutManager = new LayoutManager({ documentRef }); this.layoutCleanup = this.layoutManager.install(); this.themeCleanup = this.theme.install();
     this.engine = new GameEngine({ app: this.app, documentRef: this.document, windowRef: this.window, state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, particles: this.particles, levelManager: this.levelManager, theme: this.theme, layoutManager: this.layoutManager, actions: { onSettings: () => this.showSettingsFromGame(), onMenu: () => this.showMenu(), onLevelComplete: (level, score, bonus) => this.showLevelComplete(level, score, bonus) } });
     this.visibilityHandler = () => this.handleVisibilityChange();
+    this.yandexPauseHandler = () => this.sound.pauseAudio();
+    this.yandexResumeHandler = () => this.sound.resumeAudio();
     this.menu = new Menu({ getState: () => this.state.data, onPlay: () => this.startGame(), onSettings: () => this.showSettings() });
     this.settings = new Settings({ getState: () => this.state.data, sound: this.sound, onSettingChanged: (key, value) => this.updateSetting(key, value), onBack: fromGame => fromGame ? this.closeGameSettings() : this.showMenu() });
     this.levelComplete = new LevelComplete({ onNextLevel: () => this.nextLevel() });
     this.app.append(this.menu.container); this.document.body?.append(this.settings.container); this.menu.show(); this.settings.hide(); this.applySettings();
     this.localeCleanup = onLocaleChanged(() => this.refreshLocale());
     this.document.addEventListener('visibilitychange', this.visibilityHandler);
+    this.window.addEventListener('yandex-game-pause', this.yandexPauseHandler);
+    this.window.addEventListener('yandex-game-resume', this.yandexResumeHandler);
   }
   get score() { return this.stats.totalScore; } get levelScore() { return this.stats.levelScore; } get currentLevel() { return this.engine.level?.id ?? 0; } get isPaused() { return this.engine.isPaused; } get isTransitioning() { return this.engine.isTransitioning; } get isInGame() { return this.engine.isActive; }
   applySettings() { const settings = this.state.data.settings; this.sound.enabled = settings.sound; this.document.body.classList.toggle('reduced-motion', settings.reduced); }
@@ -38,12 +42,7 @@ export class Game {
   pauseGame() { return this.engine.pause(); } resumeGame() { return this.engine.resume(); }
   startGame() { if (this.engine.isTransitioning) return; this.sound.init(); this.menu.hide(); this.settings.hide(); try { this.engine.start(); } catch (error) { console.error('Failed to start game:', error); this.showMenu(); } }
   retryLevel() { return this.engine.retry(); } nextLevel() { return this.engine.next(); }
-  async showLevelComplete(level, score, bonus) {
-    this.menu.render();
-    this.levelComplete.show(level, score, bonus);
-    // The completion screen is a natural pause between levels; show fullscreen ad here.
-    await showFullscreenAd();
-  }
+  async showLevelComplete(level, score, bonus) { this.menu.render(); this.levelComplete.show(level, score, bonus); await showFullscreenAd(); }
   showMenu() { this.engine.session.stop(); this.engine.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
   showSettings() { this.menu.hide(); this.settings.fromGame = false; this.settings.render(); this.settings.show(); }
   showSettingsFromGame() { this.pauseGame(); this.settings.fromGame = true; this.settings.render(); this.settings.show(); }
@@ -55,5 +54,5 @@ export class Game {
     if (menuVisible) this.menu.render();
     if (settingsVisible) { this.settings.render(); this.settings.show(); }
   }
-  destroy() { this.localeCleanup?.(); this.engine.destroy(); this.layoutCleanup?.(); this.themeCleanup?.(); this.document.removeEventListener('visibilitychange', this.visibilityHandler); this.timer.destroy(); this.particles.destroy(); this.sound.destroy(); this.menu.destroy(); this.settings.destroy(); this.levelComplete.destroy(); }
+  destroy() { this.localeCleanup?.(); this.engine.destroy(); this.layoutCleanup?.(); this.themeCleanup?.(); this.document.removeEventListener('visibilitychange', this.visibilityHandler); this.window.removeEventListener('yandex-game-pause', this.yandexPauseHandler); this.window.removeEventListener('yandex-game-resume', this.yandexResumeHandler); this.timer.destroy(); this.particles.destroy(); this.sound.destroy(); this.menu.destroy(); this.settings.destroy(); this.levelComplete.destroy(); }
 }
