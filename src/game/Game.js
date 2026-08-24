@@ -28,33 +28,18 @@ export class Game {
     this.sound = new SoundManager({ windowRef });
     this.particles = new ParticleSystem({ documentRef, windowRef });
     this.timer = new GameTimer({ onTick: seconds => this.handleTimerTick(seconds), onComplete: () => this.handleFail() });
-    this.session = new GameSession({
-      state: this.state,
-      stats: this.stats,
-      timer: this.timer,
-      sound: this.sound,
-      generateLevel: level => ProceduralLevelGenerator.generate(level, this.theme),
-      onLevelLoaded: level => this.mountLevel(level),
-      onComplete: level => this.finishLevel(level),
-      onFail: () => this.showFailure(),
-    });
+    this.session = new GameSession({ state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, generateLevel: level => ProceduralLevelGenerator.generate(level, this.theme), onLevelLoaded: level => this.mountLevel(level), onComplete: level => this.finishLevel(level), onFail: () => this.showFailure() });
     this.drag = null;
     this.ui = null;
     this.completionTimeout = null;
     this.visibilityHandler = () => this.handleVisibilityChange();
-
     this.menu = new Menu({ getState: () => this.state.data, onPlay: () => this.startGame(), onSettings: () => this.showSettings() });
-    this.settings = new Settings({
-      getState: () => this.state.data,
-      sound: this.sound,
-      onSettingChanged: (key, value) => this.updateSetting(key, value),
-      onBack: fromGame => fromGame ? this.closeGameSettings() : this.showMenu(),
-    });
+    this.settings = new Settings({ getState: () => this.state.data, sound: this.sound, onSettingChanged: (key, value) => this.updateSetting(key, value), onBack: fromGame => fromGame ? this.closeGameSettings() : this.showMenu() });
     this.levelComplete = new LevelComplete({ onNextLevel: () => this.nextLevel() });
-
     this.theme.injectStyles();
     installLibraryVisuals(this.document);
-    this.app.append(this.menu.container, this.settings.container);
+    this.app.append(this.menu.container);
+    this.document.body?.append(this.settings.container);
     this.menu.show();
     this.settings.hide();
     this.applySettings();
@@ -82,60 +67,28 @@ export class Game {
     this.state.data.settings[key] = value;
     this.state.save();
     this.applySettings();
-    if (key === 'sound' && value) {
-      this.sound.init();
-      this.sound.playPick();
-    }
+    if (key === 'sound' && value) { this.sound.init(); this.sound.playPick(); }
   }
 
   handleVisibilityChange() {
-    if (this.document.hidden && this.session.active && !this.session.transitioning && !this.session.isPaused) {
-      this.pauseGame();
-      this.ui?.showPauseMenu();
-    }
+    if (this.document.hidden && this.session.active && !this.session.transitioning && !this.session.isPaused) { this.pauseGame(); this.ui?.showPauseMenu(); }
   }
 
-  pauseGame() {
-    if (this.session.pause()) this.drag?.pause();
-  }
-
-  resumeGame() {
-    if (this.session.resume()) {
-      this.drag?.resume();
-      this.ui?.hidePauseMenu();
-    }
-  }
+  pauseGame() { if (this.session.pause()) this.drag?.pause(); }
+  resumeGame() { if (this.session.resume()) { this.drag?.resume(); this.ui?.hidePauseMenu(); } }
 
   startGame() {
     if (this.session.transitioning) return;
     this.sound.init();
     this.menu.hide();
     this.settings.hide();
-    try {
-      this.session.start();
-    } catch (error) {
-      console.error('Failed to start game:', error);
-      this.showMenu();
-    }
+    try { this.session.start(); } catch (error) { console.error('Failed to start game:', error); this.showMenu(); }
   }
 
   mountLevel(level) {
     this.cleanupLevel();
-    this.ui = new GameUI({ app: this.app, theme: this.theme, documentRef: this.document, actions: {
-      onPause: () => { this.pauseGame(); this.ui?.showPauseMenu(); },
-      onRetry: () => this.retryLevel(),
-      onResume: () => this.resumeGame(),
-      onSettings: () => this.showSettingsFromGame(),
-      onMenu: () => this.showMenu(),
-    }});
-    this.drag = new DragController({
-      getLevel: () => this.currentLevel,
-      isBlocked: () => this.isTransitioning || this.isPaused || this.session.status === 'FAILED',
-      sound: this.sound,
-      root: this.document,
-      onCorrect: (object, element, container) => this.handleCorrect(object, element, container),
-      onWrong: element => this.handleWrong(element),
-    });
+    this.ui = new GameUI({ app: this.app, theme: this.theme, documentRef: this.document, actions: { onPause: () => { this.pauseGame(); this.ui?.showPauseMenu(); }, onRetry: () => this.retryLevel(), onResume: () => this.resumeGame(), onSettings: () => this.showSettingsFromGame(), onMenu: () => this.showMenu() } });
+    this.drag = new DragController({ getLevel: () => this.currentLevel, isBlocked: () => this.isTransitioning || this.isPaused || this.session.status === 'FAILED', sound: this.sound, root: this.document, onCorrect: (object, element, container) => this.handleCorrect(object, element, container), onWrong: element => this.handleWrong(element) });
     this.ui.updateHUD(level.id, level.difficulty, this.score);
     this.ui.setRule(level.ruleText, this.theme.displayName);
     this.ui.renderObjects(level.objects);
@@ -173,9 +126,7 @@ export class Game {
     if (this.combo >= 2) this.ui.showCombo(this.combo);
     if (this.combo >= 3) this.sound.playCombo(); else this.sound.playCorrect();
     this.window.setTimeout(() => element.remove(), 500);
-    if (this.placed >= this.currentLevel.objects.length && this.session.markCompleting()) {
-      this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 600);
-    }
+    if (this.placed >= this.currentLevel.objects.length && this.session.markCompleting()) this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 600);
   }
 
   handleWrong(element) {
@@ -201,17 +152,12 @@ export class Game {
     this.completionTimeout = null;
   }
 
-  handleFail() {
-    if (this.session.fail()) this.drag?.pause();
-  }
-
+  handleFail() { if (this.session.fail()) this.drag?.pause(); }
   showFailure() { this.ui?.showFail(); this.sound.playWrong(); }
 
   showMenu() {
     this.session.stop();
     this.cleanupLevel();
-    while (this.app.firstChild) this.app.firstChild.remove();
-    this.app.append(this.menu.container, this.settings.container);
     this.menu.render();
     this.menu.show();
     this.settings.hide();
