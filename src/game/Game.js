@@ -40,7 +40,6 @@ export class Game {
   get combo() { return this.stats.combo; }
   get levelScore() { return this.stats.levelScore; }
   get placed() { return this.stats.placed; }
-  get mistakes() { return this.stats.mistakes; }
   get currentLevel() { return this.session.level; }
   get isPaused() { return this.session.isPaused; }
   get isTransitioning() { return this.session.transitioning; }
@@ -101,18 +100,13 @@ export class Game {
     this.ui.updateHUD(level.id, level.difficulty, this.score, level.moves); this.sound.playPick();
   }
 
-  handleWrong(element) {
-    if (this.isPaused || !this.session.isPlaying) return;
-    this.stats.addMistake(); element.classList.add('shake'); this.window.setTimeout(() => element.classList.remove('shake'), 300); this.sound.playWrong();
-  }
-
   finishLevel(level) {
     this.sound.playLevelComplete();
     const moveBonus = ScoreCalculator.timeBonus(Math.max(0, 120 - level.moves), true);
-    const accuracyBonus = ScoreCalculator.accuracyBonus(this.stats.accuracy(level.objects.length));
+    const accuracyBonus = 0;
     this.stats.addBonus(moveBonus + accuracyBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
     this.menu.render(); this.particles.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30);
-    this.levelComplete.show(level.id, this.levelScore, this.combo, this.mistakes, moveBonus, accuracyBonus, this.stats.stars()); this.completionTimeout = null;
+    this.levelComplete.show(level.id, this.levelScore, this.combo, moveBonus, accuracyBonus, 3); this.completionTimeout = null;
   }
 
   showMenu() { this.session.stop(); this.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
