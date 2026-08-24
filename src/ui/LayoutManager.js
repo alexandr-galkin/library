@@ -25,11 +25,13 @@ export class LayoutManager {
       this.document.head.append(style);
       this.style = style;
     }
+
     this.updateLayout();
     this.resizeHandler = () => this.updateLayout();
     this.orientationHandler = () => this.scheduleLayoutUpdate();
     this.window?.addEventListener?.('resize', this.resizeHandler, { passive: true });
     this.window?.addEventListener?.('orientationchange', this.orientationHandler, { passive: true });
+
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.updateLayout());
       this.resizeObserver.observe(this.document.documentElement);
@@ -77,7 +79,7 @@ export class LayoutManager {
       shelfHeight: Math.round(shelfHeight),
       shelfContentHeight: Math.round(shelfContentHeight),
       shelfGap: gap,
-      bookStackOffset: Math.round(62 * scaleFactor),
+      bookStackOffset: Math.round(bookHeight * 0.5),
       bookLift: Math.max(4, Math.round(10 * scaleFactor)),
       scaleFactor,
       isMobile,
@@ -96,6 +98,7 @@ export class LayoutManager {
     const height = this.window?.innerHeight ?? this.document.documentElement.clientHeight;
     const layout = this.calculateLayout(width, height, this.shelfCount);
     const root = this.document.documentElement;
+
     const values = {
       '--game-width': `${layout.gameWidth}px`,
       '--game-height': `${layout.gameHeight}px`,
@@ -133,7 +136,7 @@ export class LayoutManager {
         --book-width: ${book.width}px;
         --book-height: ${book.height}px;
         --shelf-content-height: 435px;
-        --book-stack-offset: 62px;
+        --book-stack-offset: 52px;
         --book-lift: 10px;
       }
 
@@ -213,7 +216,7 @@ export class LayoutManager {
         overflow: visible;
       }
 
-      /* CSS gap cannot be negative. Use negative margins to create the intended stack overlap. */
+      /* Vertical stack: bottom book is fully visible; each book above shows about half. */
       #app .game-table .shelf-items > .book-item {
         position: relative;
         left: auto;
