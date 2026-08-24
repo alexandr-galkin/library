@@ -44,9 +44,14 @@ export class GameSession {
   }
 
   load(levelNumber) {
-    this.timer.stop();
+    // Generate before stopping the current timer. A failed retry must not
+    // destroy a still playable level.
     const level = this.generateLevel(levelNumber);
-    if (!level || typeof level !== 'object') throw new Error(`Level generator returned an invalid level: ${levelNumber}`);
+    if (!level || typeof level !== 'object') {
+      throw new Error(`Level generator returned an invalid level: ${levelNumber}`);
+    }
+
+    this.timer.stop();
     this.level = level;
     this.stats.resetLevel();
     this.status = GameStatus.PLAYING;
@@ -58,19 +63,27 @@ export class GameSession {
   retry() {
     if (!this.active || this.transitioning || this.isCompleting) return false;
     this.transitioning = true;
-    try { this.load(this.state.data.currentLevel); return true; }
-    finally { this.transitioning = false; }
+    try {
+      this.load(this.state.data.currentLevel);
+      return true;
+    } finally {
+      this.transitioning = false;
+    }
   }
 
   next() {
     if (!this.active || this.transitioning || (!this.isPlaying && !this.isCompleting)) return false;
     this.transitioning = true;
+    const nextLevel = this.state.data.currentLevel + 1;
     try {
-      this.state.data.currentLevel += 1;
+      // Generate first so a failed generation does not advance persisted progress.
+      this.load(nextLevel);
+      this.state.data.currentLevel = nextLevel;
       this.state.save();
-      this.load(this.state.data.currentLevel);
       return true;
-    } finally { this.transitioning = false; }
+    } finally {
+      this.transitioning = false;
+    }
   }
 
   pause() {
@@ -97,7 +110,9 @@ export class GameSession {
   }
 
   complete() {
-    if (!this.isCompleting) return false;
+    // markCompleting owns the transition lock; this makes completion idempotent
+    // and prevents duplicate score/persistence/UI side effects.
+    if (!this.isCompleting || !this.transitioning) return false;
     this.timer.stop();
     this.onComplete?.(this.level);
     this.transitioning = false;
