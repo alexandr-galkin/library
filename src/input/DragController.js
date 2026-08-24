@@ -23,6 +23,7 @@ export class DragController {
     this.isDragging = false;
     this.isPaused = false;
     this.hasMoved = false;
+    this.pointerId = null;
     this.onDown = event => this.onPointerDown(event);
     this.onMove = event => this.onPointerMove(event);
     this.onUp = event => this.onPointerUp(event);
@@ -52,15 +53,19 @@ export class DragController {
     this.startX = event.clientX;
     this.startY = event.clientY;
     this.hasMoved = false;
+    this.pointerId = event.pointerId ?? null;
     this.isDragging = true;
     item.classList.add('dragging');
+    if (typeof item.setPointerCapture === 'function' && this.pointerId !== null) {
+      try { item.setPointerCapture(this.pointerId); } catch { /* pointer may already be released */ }
+    }
     this.root.body?.appendChild(item);
     this.updatePosition(event.clientX, event.clientY);
     this.sound?.playPick();
   }
 
   onPointerMove(event) {
-    if (this.isPaused || !this.isDragging || !this.dragEl) return;
+    if (this.isPaused || !this.isDragging || !this.dragEl || !this.ownsPointer(event)) return;
     event.preventDefault();
     const dx = event.clientX - this.startX;
     const dy = event.clientY - this.startY;
@@ -70,7 +75,7 @@ export class DragController {
   }
 
   onPointerUp(event) {
-    if (this.isPaused || !this.isDragging || !this.dragEl) return;
+    if (this.isPaused || !this.isDragging || !this.dragEl || !this.ownsPointer(event)) return;
     event.preventDefault();
     if (!this.hasMoved) return this.cancelDrag();
     const target = this.findTargetContainer(event.clientX, event.clientY);
@@ -78,6 +83,7 @@ export class DragController {
     if (target && this.validator.canDrop(this.dragItem, target.container)) {
       const item = this.dragItem;
       const element = this.dragEl;
+      this.releasePointer();
       this.clearDragState();
       this.onCorrect(item, element, target.element);
       return;
@@ -87,8 +93,20 @@ export class DragController {
     this.cancelDrag();
   }
 
+  ownsPointer(event) {
+    return this.pointerId === null || event.pointerId === undefined || event.pointerId === this.pointerId;
+  }
+
+  releasePointer() {
+    if (this.dragEl && this.pointerId !== null && typeof this.dragEl.releasePointerCapture === 'function') {
+      try { this.dragEl.releasePointerCapture(this.pointerId); } catch { /* pointer may already be released */ }
+    }
+    this.pointerId = null;
+  }
+
   cancelDrag() {
     const element = this.dragEl;
+    this.releasePointer();
     if (element) {
       element.classList.remove('dragging');
       element.style.left = '';
@@ -106,6 +124,7 @@ export class DragController {
     this.originalParent = null;
     this.originalNext = null;
     this.hasMoved = false;
+    this.pointerId = null;
   }
 
   updatePosition(clientX, clientY) {
