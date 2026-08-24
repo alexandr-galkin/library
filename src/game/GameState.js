@@ -7,41 +7,40 @@ const DEFAULT_STATE = Object.freeze({
   settings: Object.freeze({ sound: true, anim: true, reduced: false }),
 });
 
+const SETTING_KEYS = Object.freeze(['sound', 'anim', 'reduced']);
+
 export class GameState {
-  constructor(repository = new LocalStorageRepository(globalThis.localStorage, 'library-game', ['chaosGame_v2'])) {
+  constructor(repository = new LocalStorageRepository()) {
     this.repository = repository;
     this.data = this.load();
   }
 
   load() {
-    return this.validateAndMerge(this.repository.load());
+    return this.validate(this.repository.load());
   }
 
-  validateAndMerge(saved) {
+  validate(saved) {
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return this.defaults();
     const defaults = this.defaults();
-
     return {
-      currentLevel: this.validateNumber(saved.currentLevel, defaults.currentLevel, 1, 9999),
-      bestScore: this.validateNumber(saved.bestScore, defaults.bestScore, 0, Number.MAX_SAFE_INTEGER),
-      totalScore: this.validateNumber(saved.totalScore, defaults.totalScore, 0, Number.MAX_SAFE_INTEGER),
+      currentLevel: this.number(saved.currentLevel, defaults.currentLevel, 1, 9999),
+      bestScore: this.number(saved.bestScore, defaults.bestScore, 0, Number.MAX_SAFE_INTEGER),
+      totalScore: this.number(saved.totalScore, defaults.totalScore, 0, Number.MAX_SAFE_INTEGER),
       settings: this.validateSettings(saved.settings, defaults.settings),
     };
   }
 
-  validateNumber(value, defaultValue, min, max) {
+  number(value, fallback, min, max) {
     const number = Number(value);
-    if (!Number.isFinite(number) || number < min || number > max) return defaultValue;
-    return Math.floor(number);
+    return Number.isFinite(number) && number >= min && number <= max ? Math.floor(number) : fallback;
   }
 
   validateSettings(saved, defaults) {
     if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { ...defaults };
-    return {
-      sound: typeof saved.sound === 'boolean' ? saved.sound : defaults.sound,
-      anim: typeof saved.anim === 'boolean' ? saved.anim : defaults.anim,
-      reduced: typeof saved.reduced === 'boolean' ? saved.reduced : defaults.reduced,
-    };
+    return Object.fromEntries(SETTING_KEYS.map(key => [
+      key,
+      typeof saved[key] === 'boolean' ? saved[key] : defaults[key],
+    ]));
   }
 
   defaults() {
@@ -53,26 +52,28 @@ export class GameState {
     };
   }
 
-  save() {
-    this.repository.save(this.data);
-  }
+  save() { return this.repository.save(this.data); }
 
-  get(key) {
-    return this.data[key];
-  }
+  get(key) { return this.data[key]; }
 
   set(key, value) {
+    if (!(key in this.data)) return false;
     this.data[key] = value;
-    this.save();
+    return this.save();
   }
 
   updateSettings(settings) {
-    this.data.settings = { ...this.data.settings, ...settings };
-    this.save();
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return false;
+    const next = {};
+    for (const key of SETTING_KEYS) {
+      if (typeof settings[key] === 'boolean') next[key] = settings[key];
+    }
+    this.data.settings = { ...this.data.settings, ...next };
+    return this.save();
   }
 
   reset() {
     this.data = this.defaults();
-    this.save();
+    return this.save();
   }
 }
