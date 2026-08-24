@@ -2,7 +2,6 @@ import { BOOK_SIZES } from '../themes/library/BookAssets.js';
 
 const STYLE_ID = 'library-layout-manager';
 
-/** The single owner of puzzle geometry. */
 export class LayoutManager {
   constructor({ documentRef = document } = {}) {
     this.document = documentRef;
@@ -25,13 +24,11 @@ export class LayoutManager {
       this.document.head.append(style);
       this.style = style;
     }
-
     this.updateLayout();
     this.resizeHandler = () => this.updateLayout();
     this.orientationHandler = () => this.scheduleLayoutUpdate();
     this.window?.addEventListener?.('resize', this.resizeHandler, { passive: true });
     this.window?.addEventListener?.('orientationchange', this.orientationHandler, { passive: true });
-
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.updateLayout());
       this.resizeObserver.observe(this.document.documentElement);
@@ -47,8 +44,6 @@ export class LayoutManager {
     const isLandscape = width > height;
     const isSmallMobile = width < 480;
 
-    // Desktop keeps ALL shelves in one row. The game supports up to eight shelves.
-    // Mobile is the only layout where shelves are allowed to wrap into rows.
     let columns;
     if (!isMobile) columns = count;
     else if (isLandscape) columns = Math.min(5, count);
@@ -63,7 +58,6 @@ export class LayoutManager {
     const scaleFactor = Math.min(gameWidth / 830, gameHeight / 640);
     const bookWidth = Math.max(isMobile ? 34 : 52, Math.round(72 * scaleFactor));
     const bookHeight = Math.max(isMobile ? 50 : 75, Math.round(104 * scaleFactor));
-
     const gap = isLandscape && isMobile ? 6 : isMobile ? 8 : 14;
     const usableHeight = Math.max(1, gameHeight - (isMobile ? 24 : 40));
     const shelfHeight = Math.max(
@@ -82,7 +76,6 @@ export class LayoutManager {
       shelfHeight: Math.round(shelfHeight),
       shelfContentHeight: Math.round(shelfContentHeight),
       shelfGap: gap,
-      bookStackOffset: Math.round(62 * scaleFactor),
       bookLift: Math.max(4, Math.round(10 * scaleFactor)),
       scaleFactor,
       isMobile,
@@ -101,7 +94,6 @@ export class LayoutManager {
     const height = this.window?.innerHeight ?? this.document.documentElement.clientHeight;
     const layout = this.calculateLayout(width, height, this.shelfCount);
     const root = this.document.documentElement;
-
     const values = {
       '--game-width': `${layout.gameWidth}px`,
       '--game-height': `${layout.gameHeight}px`,
@@ -112,7 +104,6 @@ export class LayoutManager {
       '--book-width': `${layout.bookWidth}px`,
       '--book-height': `${layout.bookHeight}px`,
       '--shelf-content-height': `${layout.shelfContentHeight}px`,
-      '--book-stack-offset': `${layout.bookStackOffset}px`,
       '--book-lift': `${layout.bookLift}px`,
     };
     for (const [property, value] of Object.entries(values)) root.style.setProperty(property, value);
@@ -139,7 +130,6 @@ export class LayoutManager {
         --book-width: ${book.width}px;
         --book-height: ${book.height}px;
         --shelf-content-height: 435px;
-        --book-stack-offset: 62px;
         --book-lift: 10px;
       }
 
@@ -205,6 +195,7 @@ export class LayoutManager {
         overflow: visible;
       }
 
+      /* Books are independent items placed side by side on the shelf. */
       #app .game-table .shelf-items {
         position: relative;
         width: 100%;
@@ -212,54 +203,55 @@ export class LayoutManager {
         min-height: var(--shelf-content-height);
         box-sizing: border-box;
         display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        align-items: center;
+        flex-direction: row;
+        justify-content: center;
+        align-items: flex-end;
+        gap: clamp(4px, 0.7vw, 10px);
         padding: 0 11px 15px;
         overflow: visible;
       }
 
-      /* CSS gap cannot be negative. Use negative margins to create the intended stack overlap. */
       #app .game-table .shelf-items > .book-item {
         position: relative;
         left: auto;
         top: auto;
         width: var(--book-width);
         height: var(--book-height);
-        min-width: var(--book-width);
-        min-height: var(--book-height);
+        min-width: 0;
+        min-height: 0;
         max-width: var(--book-width);
         max-height: var(--book-height);
-        flex: 0 0 var(--book-height);
+        flex: 0 1 var(--book-width);
         margin: 0;
         transform: translateY(calc(-1 * var(--book-lift)));
         transform-origin: center bottom;
+        z-index: 1;
       }
 
-      #app .game-table .shelf-items > .book-item + .book-item {
-        margin-top: calc(-1 * var(--book-stack-offset));
+      #app .game-table .shelf-items > .book-item.top-book { z-index: 2; }
+      #app .game-table .shelf-items > .book-item .book-art {
+        display: block;
+        width: var(--book-width);
+        height: var(--book-height);
+        max-width: 100%;
+        max-height: 100%;
       }
 
-      #app .game-table .shelf-items > .book-item:nth-last-child(1) { z-index: 4; }
-      #app .game-table .shelf-items > .book-item:nth-last-child(2) { z-index: 3; }
-      #app .game-table .shelf-items > .book-item:nth-last-child(3) { z-index: 2; }
-      #app .game-table .shelf-items > .book-item:nth-last-child(4) { z-index: 1; }
-      #app .game-table .shelf-items > .book-item .book-art { display:block; width:var(--book-width); height:var(--book-height); max-width:var(--book-width); max-height:var(--book-height); }
       #app .game-table .book-item.top-book { cursor: grab; }
       #app .game-table .book-item:not(.top-book) { cursor: default; }
-      #app .game-table .book-item.is-dragging { cursor: grabbing; }
+      #app .game-table .book-item.is-dragging { cursor: grabbing; z-index: 10; }
       #app .game-table .hud-bar { z-index: 70; }
       #app .game-table .rule-banner { z-index: 60; }
       #app .game-table .score-popup { z-index: 80; }
 
       @media (max-width: 767px) {
         #app .game-table .containers-zone { left:10px; right:10px; }
-        #app .game-table .shelf-items { padding-left:6px; padding-right:6px; padding-bottom:10px; }
+        #app .game-table .shelf-items { gap:4px; padding-left:6px; padding-right:6px; padding-bottom:10px; }
       }
 
       @media (orientation: landscape) and (max-width: 767px) {
         #app .game-table .containers-zone { gap:var(--shelf-gap); }
-        #app .game-table .shelf-items { padding-left:4px; padding-right:4px; }
+        #app .game-table .shelf-items { gap:3px; padding-left:4px; padding-right:4px; }
       }
 
       @media (orientation: portrait) and (max-width: 767px) {
@@ -281,7 +273,7 @@ export class LayoutManager {
     this.orientationHandler = null;
     this.style?.remove();
     this.style = null;
-    for (const property of ['--shelf-columns','--shelf-rows','--game-width','--game-height','--shelf-height','--shelf-gap','--book-width','--book-height','--shelf-content-height','--book-stack-offset','--book-lift']) {
+    for (const property of ['--shelf-columns','--shelf-rows','--game-width','--game-height','--shelf-height','--shelf-gap','--book-width','--book-height','--shelf-content-height','--book-lift']) {
       this.document.documentElement.style.removeProperty(property);
     }
   }
