@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export class Settings {
   constructor({ getState, sound, onSettingChanged, onBack }) {
     this.getState = getState;
@@ -18,13 +20,13 @@ export class Settings {
       <div class="menu-container">
         <div class="menu-background"><div class="menu-particles"></div></div>
         <div class="settings-content entered">
-          <div class="settings-header"><h2 class="settings-title">⚙ НАСТРОЙКИ</h2><div class="settings-subtitle">Настрой игру под себя</div></div>
+          <div class="settings-header"><h2 class="settings-title">${t('settings.title')}</h2><div class="settings-subtitle">${t('settings.subtitle')}</div></div>
           <div class="settings-list">
-            ${this.renderToggle('sound', '🔊', 'Звук', 'Звуковые эффекты', settings.sound)}
-            ${this.renderToggle('anim', '✨', 'Анимации', 'Визуальные эффекты', settings.anim)}
-            ${this.renderToggle('reduced', '🎯', 'Уменьшенная анимация', 'Для слабых устройств', settings.reduced)}
+            ${this.renderToggle('sound', '🔊', t('settings.sound'), t('settings.soundDescription'), settings.sound)}
+            ${this.renderToggle('anim', '✨', t('settings.animations'), t('settings.animationsDescription'), settings.anim)}
+            ${this.renderToggle('reduced', '🎯', t('settings.reduced'), t('settings.reducedDescription'), settings.reduced)}
           </div>
-          <button class="back-button" id="settings-back"><span class="back-icon">←</span><span>${this.fromGame ? 'Вернуться в игру' : 'Назад в меню'}</span></button>
+          <button class="back-button" id="settings-back"><span class="back-icon">←</span><span>${this.fromGame ? t('settings.backToGame') : t('settings.backToMenu')}</span></button>
         </div>
       </div>
     `;
