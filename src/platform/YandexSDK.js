@@ -1,3 +1,5 @@
+import { setLocaleFromPlatform } from '../i18n/index.js';
+
 let sdkPromise = null;
 let sdk = null;
 let playerPromise = null;
@@ -22,12 +24,18 @@ export async function initYandexSDK() {
   if (!YaGames?.init) return null;
   try {
     sdk = await YaGames.init();
+    applyPlatformLocale(sdk);
     setupPlatformEvents(sdk);
     return sdk;
   } catch (error) {
     console.warn('[Yandex SDK] init failed:', error);
     return null;
   }
+}
+
+function applyPlatformLocale(ysdk) {
+  const lang = ysdk?.environment?.i18n?.lang;
+  if (lang) setLocaleFromPlatform(lang);
 }
 
 export async function markGameReady() {
