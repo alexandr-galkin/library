@@ -12,6 +12,7 @@ import { Menu } from '../ui/Menu.js';
 import { Settings } from '../ui/Settings.js';
 import { LevelComplete } from '../ui/LevelComplete.js';
 import { onLocaleChanged } from '../i18n/index.js';
+import { showFullscreenAd } from '../platform/YandexSDK.js';
 
 export class Game {
   constructor({ app = document.getElementById('app'), storage, documentRef = document, windowRef = globalThis } = {}) {
@@ -37,7 +38,12 @@ export class Game {
   pauseGame() { return this.engine.pause(); } resumeGame() { return this.engine.resume(); }
   startGame() { if (this.engine.isTransitioning) return; this.sound.init(); this.menu.hide(); this.settings.hide(); try { this.engine.start(); } catch (error) { console.error('Failed to start game:', error); this.showMenu(); } }
   retryLevel() { return this.engine.retry(); } nextLevel() { return this.engine.next(); }
-  showLevelComplete(level, score, bonus) { this.menu.render(); this.levelComplete.show(level, score, bonus); }
+  async showLevelComplete(level, score, bonus) {
+    this.menu.render();
+    this.levelComplete.show(level, score, bonus);
+    // The completion screen is a natural pause between levels; show fullscreen ad here.
+    await showFullscreenAd();
+  }
   showMenu() { this.engine.session.stop(); this.engine.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
   showSettings() { this.menu.hide(); this.settings.fromGame = false; this.settings.render(); this.settings.show(); }
   showSettingsFromGame() { this.pauseGame(); this.settings.fromGame = true; this.settings.render(); this.settings.show(); }
