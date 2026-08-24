@@ -56,14 +56,14 @@ export class GameSession {
   }
 
   retry() {
-    if (!this.active || this.transitioning || this.status === GameStatus.COMPLETING) return false;
+    if (!this.active || this.transitioning || this.isCompleting) return false;
     this.transitioning = true;
     try { this.load(this.state.data.currentLevel); return true; }
     finally { this.transitioning = false; }
   }
 
   next() {
-    if (!this.active || this.transitioning || !this.isCompleting) return false;
+    if (!this.active || this.transitioning || (!this.isPlaying && !this.isCompleting)) return false;
     this.transitioning = true;
     try {
       this.state.data.currentLevel += 1;
