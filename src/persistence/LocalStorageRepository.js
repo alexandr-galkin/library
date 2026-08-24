@@ -21,7 +21,9 @@ export class LocalStorageRepository {
   read(key) {
     try {
       const raw = this.storage.getItem(key);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
     } catch (error) {
       console.warn(`Failed to read saved game state from ${key}:`, error);
       return null;
@@ -40,11 +42,13 @@ export class LocalStorageRepository {
   }
 
   clear() {
-    if (!this.storage) return;
+    if (!this.storage) return false;
     try {
       this.storage.removeItem(this.key);
+      return true;
     } catch (error) {
       console.warn('Failed to clear game state:', error);
+      return false;
     }
   }
 }
