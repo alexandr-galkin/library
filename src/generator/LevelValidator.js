@@ -1,33 +1,26 @@
-import { RuleEngine } from '../rules/RuleEngine.js';
-
 export class LevelValidator {
   static validate(level) {
     if (!this.validateBasicStructure(level)) return false;
+    const normal = level.containers.filter(container => container.type !== 'empty');
+    const empty = level.containers.filter(container => container.type === 'empty');
+    if (empty.length < 1) return false;
+    if (level.mode !== 'book-sort' || level.capacity !== 4) return false;
 
-    const normalContainers = level.containers.filter(container => container.type !== 'forbidden');
-    if (normalContainers.length < 2) return false;
-
-    const validObjects = level.objects.filter(object => normalContainers.some(container => RuleEngine.evaluate(object, container.rule)));
-    if (validObjects.length !== level.objects.length) return false;
-
-    // Every normal container must have at least one matching object.
-    if (normalContainers.some(container => !level.objects.some(object => RuleEngine.evaluate(object, container.rule)))) return false;
-
-    // At least one object must belong to exactly one container. Without this,
-    // a level can be technically valid but ambiguous to the player.
-    if (!level.objects.some(object => this.matchCount(object, normalContainers) === 1)) return false;
-
+    const counts = new Map();
+    for (const object of level.objects) counts.set(object.color, (counts.get(object.color) ?? 0) + 1);
+    if (counts.size !== level.colorCount) return false;
+    if ([...counts.values()].some(count => count !== level.capacity)) return false;
+    if (normal.length !== level.colorCount) return false;
+    if (level.objects.some(object => !level.containers.some(container => container.id === object.shelfId))) return false;
+    if (level.containers.some(container => container.items.length > level.capacity)) return false;
     return true;
-  }
-
-  static matchCount(object, containers) {
-    return containers.reduce((count, container) => count + (RuleEngine.evaluate(object, container.rule) ? 1 : 0), 0);
   }
 
   static validateBasicStructure(level) {
     if (!level || typeof level !== 'object' || Array.isArray(level)) return false;
-    if (!Array.isArray(level.objects) || level.objects.length === 0) return false;
-    if (!Array.isArray(level.containers) || level.containers.length < 2) return false;
+    if (!Array.isArray(level.objects) || !level.objects.length) return false;
+    if (!Array.isArray(level.containers) || level.containers.length < 3 || level.containers.length > 8) return false;
+    if (!Array.isArray(level.colors) || level.colors.length < 3 || level.colors.length > 8) return false;
     if (!level.objects.every(object => this.validateObject(object))) return false;
     if (!level.containers.every(container => this.validateContainer(container))) return false;
     if (new Set(level.objects.map(object => object.uid)).size !== level.objects.length) return false;
@@ -36,14 +29,10 @@ export class LevelValidator {
   }
 
   static validateObject(object) {
-    return Boolean(object && typeof object === 'object' && !Array.isArray(object)
-      && typeof object.uid === 'string' && object.uid.length > 0);
+    return Boolean(object && typeof object.uid === 'string' && object.uid && typeof object.color === 'string' && typeof object.shelfId === 'string');
   }
 
   static validateContainer(container) {
-    if (!container || typeof container !== 'object' || Array.isArray(container)) return false;
-    if (typeof container.id !== 'string' || container.id.length === 0) return false;
-    if (container.type === 'forbidden') return true;
-    return Boolean(container.rule && RuleEngine.validateRule(container.rule));
+    return Boolean(container && typeof container.id === 'string' && container.id && Number.isInteger(container.capacity) && container.capacity === 4 && Array.isArray(container.items));
   }
 }
