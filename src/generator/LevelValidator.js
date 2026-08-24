@@ -1,7 +1,6 @@
 export class LevelValidator {
   static validate(level) {
     if (!this.validateBasicStructure(level)) return false;
-    const normal = level.containers.filter(container => container.type !== 'empty');
     const empty = level.containers.filter(container => container.type === 'empty');
     if (empty.length < 1) return false;
     if (level.mode !== 'book-sort' || level.capacity !== 4) return false;
@@ -10,9 +9,9 @@ export class LevelValidator {
     for (const object of level.objects) counts.set(object.color, (counts.get(object.color) ?? 0) + 1);
     if (counts.size !== level.colorCount) return false;
     if ([...counts.values()].some(count => count !== level.capacity)) return false;
-    if (normal.length !== level.colorCount) return false;
     if (level.objects.some(object => !level.containers.some(container => container.id === object.shelfId))) return false;
     if (level.containers.some(container => container.items.length > level.capacity)) return false;
+    if (!level.containers.some(container => container.items.length === 0)) return false;
     return true;
   }
 
