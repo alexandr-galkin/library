@@ -17,7 +17,6 @@ export class DragController {
     this.onCorrect = onCorrect;
     this.onWrong = onWrong;
     this.root = root;
-
     this.dragItem = null;
     this.dragEl = null;
     this.offsetX = 0;
@@ -49,10 +48,6 @@ export class DragController {
     this.isPaused = false;
   }
 
-  getLevel() {
-    return this.getLevel?.() ?? null;
-  }
-
   cancelDrag() {
     if (this.dragEl) {
       this.dragEl.classList.remove('dragging');
@@ -65,11 +60,7 @@ export class DragController {
     }
 
     this.clearContainerHighlights();
-    this.isDragging = false;
-    this.dragEl = null;
-    this.dragItem = null;
-    this.originalParent = null;
-    this.originalNext = null;
+    this.clearDragState();
   }
 
   onPointerDown(event) {
@@ -83,7 +74,6 @@ export class DragController {
     if (!object) return;
 
     event.preventDefault();
-
     this.dragItem = object;
     this.dragEl = item;
     this.originalParent = item.parentNode;
@@ -105,14 +95,11 @@ export class DragController {
 
   onPointerMove(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
-
     event.preventDefault();
 
     const dx = event.clientX - this.startX;
     const dy = event.clientY - this.startY;
-    if (!this.hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
-      this.hasMoved = true;
-    }
+    if (!this.hasMoved && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) this.hasMoved = true;
 
     this.updatePosition(event.clientX, event.clientY);
     this.updateContainerHighlights(event.clientX, event.clientY);
@@ -120,7 +107,6 @@ export class DragController {
 
   onPointerUp(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
-
     event.preventDefault();
 
     if (!this.hasMoved) {
@@ -159,23 +145,19 @@ export class DragController {
   }
 
   updateContainerHighlights(clientX, clientY) {
+    const level = this.getLevel();
+    if (!level) return;
+
     this.root.querySelectorAll('.shelf-container').forEach(containerEl => {
       containerEl.classList.remove('highlight', 'reject');
+      if (!this.isPointInRect(clientX, clientY, containerEl.getBoundingClientRect())) return;
 
-      const rect = containerEl.getBoundingClientRect();
-      if (!this.isPointInRect(clientX, clientY, rect)) return;
-
-      const level = this.getLevel();
-      const container = level?.containers?.find(({ id }) => id === containerEl.dataset.id);
+      const container = level.containers.find(({ id }) => id === containerEl.dataset.id);
       if (!container) return;
 
-      if (container.type === 'forbidden') {
-        containerEl.classList.add('reject');
-      } else if (RuleEngine.evaluate(this.dragItem, container.rule)) {
-        containerEl.classList.add('highlight');
-      } else {
-        containerEl.classList.add('reject');
-      }
+      if (container.type === 'forbidden') containerEl.classList.add('reject');
+      else if (RuleEngine.evaluate(this.dragItem, container.rule)) containerEl.classList.add('highlight');
+      else containerEl.classList.add('reject');
     });
   }
 
@@ -191,11 +173,9 @@ export class DragController {
 
     for (const element of this.root.querySelectorAll('.shelf-container')) {
       if (!this.isPointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
-
       const container = level.containers.find(({ id }) => id === element.dataset.id);
       if (container) return { container, element };
     }
-
     return null;
   }
 
