@@ -6,6 +6,7 @@ import { ThemeManager } from '../themes/ThemeManager.js';
 import { PuzzleTheme } from '../themes/PuzzleTheme.js';
 import { LevelManager } from './LevelManager.js';
 import { GameEngine } from './GameEngine.js';
+import { LayoutManager } from '../ui/LayoutManager.js';
 import { SoundManager } from '../audio/SoundManager.js';
 import { ParticleSystem } from '../rendering/ParticleSystem.js';
 import { Menu } from '../ui/Menu.js';
@@ -28,6 +29,9 @@ export class Game {
     this.particles = new ParticleSystem({ documentRef, windowRef });
     this.timer = new GameTimer({ onTick: () => {}, onComplete: () => {} });
     this.levelManager = new LevelManager({ theme: this.theme });
+    this.layoutManager = new LayoutManager({ documentRef });
+    this.layoutCleanup = this.layoutManager.install();
+    this.themeCleanup = this.theme.install();
     this.engine = new GameEngine({
       app: this.app,
       documentRef: this.document,
@@ -45,8 +49,6 @@ export class Game {
         onLevelComplete: (level, score, bonus) => this.showLevelComplete(level, score, bonus),
       },
     });
-    this.themeCleanup = this.theme.install();
-    this.layoutCleanup = this.engineLayoutInstall();
     this.visibilityHandler = () => this.handleVisibilityChange();
 
     this.menu = new Menu({ getState: () => this.state.data, onPlay: () => this.startGame(), onSettings: () => this.showSettings() });
@@ -61,24 +63,12 @@ export class Game {
     this.document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
-  /** Install the single layout owner. */
-  engineLayoutInstall() {
-    const { LayoutManager } = this._loadLayoutManager();
-    this.layoutManager = new LayoutManager({ documentRef: this.document });
-    return this.layoutManager.install();
-  }
-
-  _loadLayoutManager() {
-    // LayoutManager is a static ES module; this indirection keeps constructor setup explicit.
-    return { LayoutManager: this.document.defaultView?.__LibraryLayoutManager ?? null };
-  }
-
   /** Total score. */
   get score() { return this.stats.totalScore; }
   /** Current level score. */
   get levelScore() { return this.stats.levelScore; }
   /** Current level number. */
-  get currentLevel() { return this.engine.level; }
+  get currentLevel() { return this.engine.level?.id ?? 0; }
   /** Whether the game is paused. */
   get isPaused() { return this.engine.isPaused; }
   /** Whether a transition is active. */
