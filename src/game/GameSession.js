@@ -44,6 +44,7 @@ export class GameSession {
   }
 
   load(levelNumber) {
+    // Generate first. If generation fails, keep the current level and timer untouched.
     const level = this.generateLevel(levelNumber);
     if (!level || typeof level !== 'object') {
       throw new Error(`Level generator returned an invalid level: ${levelNumber}`);
