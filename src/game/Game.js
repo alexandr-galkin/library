@@ -5,6 +5,7 @@ import { ScoreCalculator } from '../core/ScoreCalculator.js';
 import { LocalStorageRepository } from '../persistence/LocalStorageRepository.js';
 import { ThemeManager } from '../themes/ThemeManager.js';
 import { installLibraryVisuals } from '../themes/library/LibraryVisuals.js';
+import { installSortPuzzleVisuals } from '../themes/library/SortPuzzleVisuals.js';
 import { ProceduralLevelGenerator } from '../generator/ProceduralLevelGenerator.js';
 import { SoundManager } from '../audio/SoundManager.js';
 import { ParticleSystem } from '../rendering/ParticleSystem.js';
@@ -38,6 +39,7 @@ export class Game {
     this.levelComplete = new LevelComplete({ onNextLevel: () => this.nextLevel() });
     this.theme.injectStyles();
     installLibraryVisuals(this.document);
+    installSortPuzzleVisuals(this.document);
     this.app.append(this.menu.container);
     this.document.body?.append(this.settings.container);
     this.menu.show();
@@ -71,10 +73,7 @@ export class Game {
   }
 
   handleVisibilityChange() {
-    if (this.document.hidden && this.session.active && !this.session.transitioning && !this.session.isPaused) {
-      this.pauseGame();
-      this.ui?.showPauseMenu();
-    }
+    if (this.document.hidden && this.session.active && !this.session.transitioning && !this.session.isPaused) { this.pauseGame(); this.ui?.showPauseMenu(); }
   }
 
   pauseGame() { if (this.session.pause()) this.drag?.pause(); }
@@ -122,16 +121,12 @@ export class Game {
     this.particles.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, '#c9a227', 8);
     this.ui.showPopup(rect.left + rect.width / 2, rect.top, `ХОД ${level.moves}`);
     this.sound.playCorrect();
-
-    if (this.ui.isSolved(level) && this.session.markCompleting()) {
-      this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 500);
-    }
+    if (this.ui.isSolved(level) && this.session.markCompleting()) this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 500);
   }
 
   handleWrong(element) {
     if (this.isPaused || !this.session.isPlaying) return;
     this.stats.addMistake();
-    this.ui?.hideCombo();
     element.classList.add('shake');
     this.window.setTimeout(() => element.classList.remove('shake'), 300);
     this.sound.playWrong();
@@ -151,47 +146,12 @@ export class Game {
     this.completionTimeout = null;
   }
 
-  handleTimerTick() {}
-  handleFail() {}
-  showFailure() {}
-
-  showMenu() {
-    this.session.stop();
-    this.cleanupLevel();
-    this.menu.render();
-    this.menu.show();
-    this.settings.hide();
-  }
-
-  showSettings() {
-    this.menu.hide();
-    this.settings.fromGame = false;
-    this.settings.render();
-    this.settings.show();
-  }
-
-  showSettingsFromGame() {
-    this.pauseGame();
-    this.settings.fromGame = true;
-    this.settings.render();
-    this.settings.show();
-  }
-
-  closeGameSettings() {
-    this.settings.fromGame = false;
-    this.settings.hide();
-    this.resumeGame();
-  }
+  showMenu() { this.session.stop(); this.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
+  showSettings() { this.menu.hide(); this.settings.fromGame = false; this.settings.render(); this.settings.show(); }
+  showSettingsFromGame() { this.pauseGame(); this.settings.fromGame = true; this.settings.render(); this.settings.show(); }
+  closeGameSettings() { this.settings.fromGame = false; this.settings.hide(); this.resumeGame(); }
 
   destroy() {
-    this.session.destroy();
-    this.cleanupLevel();
-    this.document.removeEventListener('visibilitychange', this.visibilityHandler);
-    this.timer.destroy();
-    this.particles.destroy();
-    this.sound.destroy();
-    this.menu.destroy();
-    this.settings.destroy();
-    this.levelComplete.destroy();
+    this.session.destroy(); this.cleanupLevel(); this.document.removeEventListener('visibilitychange', this.visibilityHandler); this.timer.destroy(); this.particles.destroy(); this.sound.destroy(); this.menu.destroy(); this.settings.destroy(); this.levelComplete.destroy();
   }
 }
