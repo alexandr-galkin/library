@@ -22,8 +22,8 @@ export class Game {
     this.state = new GameState(storage);
     this.stats = new GameStats();
     this.theme = new ThemeManager().current;
-    this.sound = new SoundManager();
-    this.particles = new ParticleSystem();
+    this.sound = new SoundManager({ windowRef });
+    this.particles = new ParticleSystem({ documentRef, windowRef });
     this.timer = new GameTimer({ onTick: seconds => this.handleTimerTick(seconds), onComplete: () => this.handleFail() });
     this.drag = null;
     this.ui = null;
@@ -69,7 +69,10 @@ export class Game {
     this.state.data.settings[key] = value;
     this.state.save();
     this.applySettings();
-    if (key === 'sound' && value) { this.sound.init(); this.sound.playPick(); }
+    if (key === 'sound' && value) {
+      this.sound.init();
+      this.sound.playPick();
+    }
   }
 
   handleVisibilityChange() {
@@ -115,7 +118,7 @@ export class Game {
       this.currentLevel = ProceduralLevelGenerator.generate(levelNumber, this.theme);
       this.stats.resetLevel();
       this.status = GameStatus.PLAYING;
-      this.ui = new GameUI({ app: this.app, theme: this.theme, actions: {
+      this.ui = new GameUI({ app: this.app, theme: this.theme, documentRef: this.document, actions: {
         onPause: () => { this.pauseGame(); this.ui?.showPauseMenu(); },
         onRetry: () => this.retryLevel(),
         onResume: () => this.resumeGame(),
@@ -134,8 +137,12 @@ export class Game {
       this.ui.setRule(this.currentLevel.ruleText, this.theme.displayName);
       this.ui.renderObjects(this.currentLevel.objects);
       this.ui.renderContainers(this.currentLevel.containers);
-      if (this.currentLevel.timeLimit) { this.ui.showTimer(this.currentLevel.timeLimit); this.startTimer(this.currentLevel.timeLimit); }
-      else this.ui.hideTimer();
+      if (this.currentLevel.timeLimit) {
+        this.ui.showTimer(this.currentLevel.timeLimit);
+        this.startTimer(this.currentLevel.timeLimit);
+      } else {
+        this.ui.hideTimer();
+      }
     } catch (error) {
       console.error('Failed to load level:', error);
       this.handleLevelLoadError();
@@ -280,6 +287,7 @@ export class Game {
     this.document.removeEventListener('visibilitychange', this.visibilityHandler);
     this.timer.destroy();
     this.particles.destroy();
+    this.sound.destroy();
     this.menu.destroy();
     this.settings.destroy();
     this.levelComplete.destroy();
