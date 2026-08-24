@@ -5,12 +5,12 @@ import { pointInRect } from '../input/DropValidator.js';
 
 const DRAG_THRESHOLD = 5;
 
-/** Pointer-event drag controller with atomic drag state and RAF throttling. */
+/** Pointer-event drag controller with immediate visual tracking and RAF-throttled hit testing. */
 export class DragController {
   constructor({ getLevel, isBlocked = () => false, sound = null, onDrop = () => {}, onWrong = () => {}, root = document, validator = new BookSortDropValidator(), eventBus = new EventBus() } = {}) {
     if (typeof getLevel !== 'function') throw new TypeError('DragController requires getLevel()');
     this.getLevel = getLevel; this.isBlocked = isBlocked; this.sound = sound; this.onDrop = onDrop; this.onWrong = onWrong; this.root = root; this.validator = validator; this.eventBus = eventBus; this.cleanup = new CleanupManager();
-    this.isDragging = false; this.isPaused = false; this.pointerId = null; this.dragItem = null; this.dragEl = null; this.originalParent = null; this.originalNext = null; this.offsetX = 0; this.offsetY = 0; this.startX = 0; this.startY = 0; this.hasMoved = false; this.latestPointer = null; this.frameId = null;
+    this.isDragging = false; this.isPaused = false; this.pointerId = null; this.dragItem = null; this.dragEl = null; this.originalParent = null; this.originalNext = null; this.originalTransition = ''; this.offsetX = 0; this.offsetY = 0; this.startX = 0; this.startY = 0; this.hasMoved = false; this.latestPointer = null; this.frameId = null;
     this.onDown = event => this.onPointerDown(event); this.onMove = event => this.onPointerMove(event); this.onUp = event => this.onPointerUp(event);
     this.cleanup.listen(this.root, 'pointerdown', this.onDown, { passive: false }); this.cleanup.listen(this.root, 'pointermove', this.onMove, { passive: false }); this.cleanup.listen(this.root, 'pointerup', this.onUp, { passive: false }); this.cleanup.listen(this.root, 'pointercancel', this.onUp, { passive: false }); this.cleanup.add(() => this.cancelFrame());
   }
@@ -25,33 +25,46 @@ export class DragController {
     const level = this.getLevel(); const object = level?.objects?.find(({ uid }) => String(uid) === String(item.dataset.uid)); if (!object) return;
     const source = level.containers.find(container => container.id === object.shelfId); if (!source || source.items[0] !== object.uid) return;
     event.preventDefault(); const rect = item.getBoundingClientRect();
-    this.dragItem = object; this.dragEl = item; this.originalParent = item.parentNode; this.originalNext = item.nextSibling; this.offsetX = event.clientX - rect.left; this.offsetY = event.clientY - rect.top; this.startX = event.clientX; this.startY = event.clientY; this.hasMoved = false; this.pointerId = event.pointerId ?? null; this.isDragging = true;
-    item.classList.add('is-dragging'); item.style.position = 'fixed'; item.style.left = '0'; item.style.top = '0'; item.style.zIndex = '10000'; item.style.willChange = 'transform'; this.root.body?.appendChild(item); this.applyTransform(event.clientX, event.clientY);
+    this.dragItem = object; this.dragEl = item; this.originalParent = item.parentNode; this.originalNext = item.nextSibling; this.originalTransition = item.style.transition;
+    this.offsetX = event.clientX - rect.left; this.offsetY = event.clientY - rect.top; this.startX = event.clientX; this.startY = event.clientY; this.hasMoved = false; this.pointerId = event.pointerId ?? null; this.isDragging = true;
+    item.classList.add('is-dragging'); item.style.transition = 'none'; item.style.position = 'fixed'; item.style.left = '0'; item.style.top = '0'; item.style.zIndex = '10000'; item.style.willChange = 'transform'; this.root.body?.appendChild(item); this.applyTransform(event.clientX, event.clientY);
     if (typeof item.setPointerCapture === 'function' && this.pointerId !== null) { try { item.setPointerCapture(this.pointerId); } catch { /* noop */ } }
     this.sound?.playPick(); this.eventBus.emit('drag:started', { object, pointerId: this.pointerId });
   }
 
-  /** Queue pointer movement into one animation-frame update. */
+  /** Track the visual position immediately; throttle only expensive drop-target hit testing. */
   onPointerMove(event) {
-    if (this.isPaused || !this.isDragging || !this.dragEl || !this.ownsPointer(event)) return; event.preventDefault(); this.latestPointer = { x: event.clientX, y: event.clientY };
-    const dx = event.clientX - this.startX; const dy = event.clientY - this.startY; if (!this.hasMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD) this.hasMoved = true; if (this.frameId !== null) return;
+    if (this.isPaused || !this.isDragging || !this.dragEl || !this.ownsPointer(event)) return; event.preventDefault();
+    const events = typeof event.getCoalescedEvents === 'function' ? event.getCoalescedEvents() : [event];
+    const latest = events[events.length - 1] ?? event;
+    this.latestPointer = { x: latest.clientX, y: latest.clientY };
+
+    // Do not wait for RAF for the book itself. That adds up to one frame of visible latency.
+    // The browser already schedules pointer events close to its rendering cadence, so the
+    // transform can follow the freshest pointer position directly.
+    for (const pointer of events) this.applyTransform(pointer.clientX, pointer.clientY);
+
+    const dx = latest.clientX - this.startX; const dy = latest.clientY - this.startY; if (!this.hasMoved && Math.hypot(dx, dy) > DRAG_THRESHOLD) this.hasMoved = true;
+    if (this.frameId !== null) return;
     const request = this.root.defaultView?.requestAnimationFrame ?? requestAnimationFrame; this.frameId = request(() => this.flushPointerFrame());
   }
 
-  /** Apply the latest pointer position and update highlights. */
-  flushPointerFrame() { this.frameId = null; if (!this.isDragging || !this.dragEl || !this.latestPointer) return; const { x, y } = this.latestPointer; this.applyTransform(x, y); this.updateContainerHighlights(x, y); }
+  /** Run only the expensive drop-target/highlight work once per rendered frame. */
+  flushPointerFrame() { this.frameId = null; if (!this.isDragging || !this.dragEl || !this.latestPointer) return; const { x, y } = this.latestPointer; this.updateContainerHighlights(x, y); }
 
   /** Complete or cancel the current atomic drag transaction. */
   onPointerUp(event) {
     if (this.isPaused || !this.isDragging || !this.dragEl || !this.ownsPointer(event)) return; event.preventDefault();
     if (!this.hasMoved) { this.cancelDrag(); return; }
     const target = this.findTargetContainer(event.clientX, event.clientY); this.clearContainerHighlights(); const object = this.dragItem; const element = this.dragEl; const level = this.getLevel();
-    if (target && this.validator.canDrop(object, target.container, level)) { this.finishVisualDrag(element); this.clearDragState(); this.onDrop(object, target.container, target.element); this.eventBus.emit('drag:ended', { object, target: target.container, accepted: true }); return; }
+    if (target && this.validator.canDrop(object, target.container, level)) { this.finishVisualDrag(element); this.clearDragState(); this.onDrop(object, target.container, element); this.eventBus.emit('drag:ended', { object, target: target.container, accepted: true }); return; }
     this.onWrong?.(element); this.eventBus.emit('drag:ended', { object, target: target?.container ?? null, accepted: false }); this.cancelDrag();
   }
 
-  /** @param {PointerEvent} event @returns {boolean} */ ownsPointer(event) { return this.pointerId === null || event.pointerId === undefined || event.pointerId === this.pointerId; }
-  /** Move the dragged element using transform rather than per-frame left/top writes. */ applyTransform(clientX, clientY) { if (!this.dragEl) return; this.dragEl.style.transform = `translate3d(${clientX - this.offsetX}px, ${clientY - this.offsetY}px, 0)`; }
+  /** @param {PointerEvent} event @returns {boolean} */
+  ownsPointer(event) { return this.pointerId === null || event.pointerId === undefined || event.pointerId === this.pointerId; }
+  /** Move the dragged element with a compositor-friendly transform. */
+  applyTransform(clientX, clientY) { if (!this.dragEl) return; this.dragEl.style.transform = `translate3d(${clientX - this.offsetX}px, ${clientY - this.offsetY}px, 0)`; }
 
   /** Find the shelf currently underneath the pointer. */
   findTargetContainer(clientX, clientY) {
@@ -66,11 +79,11 @@ export class DragController {
   /** Clear all drop target states. */ clearContainerHighlights() { this.root.querySelectorAll('.shelf-container').forEach(element => element.classList.remove('highlight', 'reject')); }
 
   /** Restore a successful drag element to normal DOM flow. */
-  finishVisualDrag(element) { if (!element) return; this.releasePointer(); element.classList.remove('is-dragging'); element.style.position = ''; element.style.left = ''; element.style.top = ''; element.style.zIndex = ''; element.style.willChange = ''; element.style.transform = ''; if (this.originalParent && element.parentNode !== this.originalParent) this.originalParent.insertBefore(element, this.originalNext); }
+  finishVisualDrag(element) { if (!element) return; this.releasePointer(); element.classList.remove('is-dragging'); element.style.position = ''; element.style.left = ''; element.style.top = ''; element.style.zIndex = ''; element.style.willChange = ''; element.style.transition = this.originalTransition; element.style.transform = ''; if (this.originalParent && element.parentNode !== this.originalParent) this.originalParent.insertBefore(element, this.originalNext); }
   /** Cancel the active transaction and restore the DOM. */
   cancelDrag() { const element = this.dragEl; this.releasePointer(); this.cancelFrame(); if (element) this.finishVisualDrag(element); this.clearContainerHighlights(); this.clearDragState(); }
   /** Reset atomic drag state. */
-  clearDragState() { this.isDragging = false; this.dragEl = null; this.dragItem = null; this.originalParent = null; this.originalNext = null; this.hasMoved = false; this.pointerId = null; this.latestPointer = null; }
+  clearDragState() { this.isDragging = false; this.dragEl = null; this.dragItem = null; this.originalParent = null; this.originalNext = null; this.originalTransition = ''; this.hasMoved = false; this.pointerId = null; this.latestPointer = null; }
   /** Release pointer capture if present. */
   releasePointer() { if (this.dragEl && this.pointerId !== null && typeof this.dragEl.releasePointerCapture === 'function') { try { this.dragEl.releasePointerCapture(this.pointerId); } catch { /* noop */ } } this.pointerId = null; }
   /** Cancel a pending RAF callback. */
