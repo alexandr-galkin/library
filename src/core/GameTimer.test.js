@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { GameTimer } from './GameTimer.js';
 
 describe('GameTimer', () => {
-  it('ticks and completes', () => {
+  it('ticks and completes once', () => {
     vi.useFakeTimers();
     const ticks = [];
     const complete = vi.fn();
@@ -17,7 +17,7 @@ describe('GameTimer', () => {
     vi.useRealTimers();
   });
 
-  it('can pause and resume', () => {
+  it('pauses and resumes without consuming time', () => {
     vi.useFakeTimers();
     const timer = new GameTimer();
     timer.start(3);
@@ -30,5 +30,14 @@ describe('GameTimer', () => {
     expect(timer.remaining).toBe(1);
     timer.destroy();
     vi.useRealTimers();
+  });
+
+  it('completes immediately for zero or invalid duration', () => {
+    const complete = vi.fn();
+    const timer = new GameTimer({ onComplete: complete });
+    timer.start(-10);
+    expect(timer.remaining).toBe(0);
+    expect(complete).toHaveBeenCalledOnce();
+    timer.destroy();
   });
 });
