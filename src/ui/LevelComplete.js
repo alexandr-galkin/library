@@ -14,8 +14,8 @@ export class LevelComplete {
     document.body.appendChild(this.overlay);
   }
 
-  show(level, score, combo, timeBonus, accuracyBonus, stars) {
-    const baseScore = score - timeBonus - accuracyBonus;
+  show(level, score, timeBonus) {
+    const baseScore = score - timeBonus;
     this.overlay.innerHTML = `
       <div class="modal-card level-complete-card">
         <div class="complete-header">
@@ -23,12 +23,10 @@ export class LevelComplete {
           <div class="complete-title">КНИГИ РАЗЛОЖЕНЫ!</div>
           <div class="complete-level">Уровень ${level} пройден</div>
         </div>
-        <div class="stars-container">${this.generateStars(stars)}</div>
+        <div class="stars-container">${this.generateStars(3)}</div>
         <div class="score-breakdown">
           <div class="score-row"><span>📚 Базовые очки</span><strong>${baseScore}</strong></div>
           <div class="score-row"><span>⏱ Бонус времени</span><strong>+${timeBonus}</strong></div>
-          <div class="score-row"><span>🎯 Бонус точности</span><strong>+${accuracyBonus}</strong></div>
-          <div class="score-row"><span>🔥 Комбо</span><strong>x${combo}</strong></div>
           <div class="score-total"><span>ИТОГО</span><strong>${score}</strong></div>
         </div>
         <button id="btn-next-level" type="button">
