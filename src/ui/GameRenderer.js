@@ -7,7 +7,7 @@ export class GameRenderer {
     this.app = app; this.theme = theme; this.document = documentRef; this.actions = actions;
     this.elements = {}; this.cleanup = new CleanupManager(); this.timeouts = new Set(); this.build();
   }
-  build() { this.app.replaceChildren(); this.buildBackground(); this.buildTable(); this.buildHUD(); this.buildRuleBanner(); this.buildGameZones(); this.buildOverlays(); }
+  build() { this.buildBackground(); this.buildTable(); this.buildHUD(); this.buildRuleBanner(); this.buildGameZones(); this.buildOverlays(); }
   buildBackground() { const background = this.document.createElement('div'); background.className = 'library-bg'; this.elements.bg = background; this.theme.renderBackground(background); this.app.append(background); }
   buildTable() { const table = this.document.createElement('div'); table.className = 'game-table'; table.dataset.layoutManaged = 'true'; this.elements.table = table; this.app.append(table); }
   buildHUD() { const hud = this.document.createElement('div'); hud.className = 'hud-bar'; const items = [[t('hud.level'), 'hud-level', '1'], [t('hud.difficulty'), 'hud-diff', '1'], [t('hud.moves'), 'hud-moves', '0'], [t('hud.score'), 'hud-score', '0']]; for (const [label, id, value] of items) { const item = this.document.createElement('div'); item.className = 'hud-item'; item.append(`${label} `); const valueElement = this.document.createElement('span'); valueElement.id = id; valueElement.textContent = value; item.append(valueElement); hud.append(item); } const undo = this.document.createElement('button'); undo.className = 'menu-button undo-button'; undo.type = 'button'; undo.append('↶ ', t('hud.undo')); this.cleanup.listen(undo, 'click', () => this.actions.onUndo?.()); hud.append(undo); const menu = this.document.createElement('button'); menu.className = 'menu-button'; menu.type = 'button'; menu.append('☰ ', t('hud.menu')); this.cleanup.listen(menu, 'click', () => this.actions.onPause?.()); hud.append(menu); this.elements.hud = hud; this.elements.hudLevel = hud.querySelector('#hud-level'); this.elements.hudDiff = hud.querySelector('#hud-diff'); this.elements.hudMoves = hud.querySelector('#hud-moves'); this.elements.hudScore = hud.querySelector('#hud-score'); this.app.append(hud); }
@@ -24,5 +24,5 @@ export class GameRenderer {
   hideFail() { this.hideOverlay(this.elements.failOverlay); }
   showPauseMenu() { this.elements.pauseOverlay.classList.add('active'); }
   hidePauseMenu() { this.hideOverlay(this.elements.pauseOverlay); }
-  destroy() { for (const timeout of this.timeouts) clearTimeout(timeout); this.timeouts.clear(); this.cleanup.cleanup(); this.elements = {}; this.app.replaceChildren(); }
+  destroy() { for (const timeout of this.timeouts) clearTimeout(timeout); this.timeouts.clear(); this.cleanup.cleanup(); Object.values(this.elements).forEach(element => { if (element?.parentNode === this.app) element.remove(); }); this.elements = {}; }
 }
