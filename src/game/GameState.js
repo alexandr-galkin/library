@@ -1,38 +1,54 @@
+import { LocalStorageRepository } from '../persistence/LocalStorageRepository.js';
+
+const DEFAULT_STATE = Object.freeze({
+  currentLevel: 1,
+  bestScore: 0,
+  totalScore: 0,
+  settings: Object.freeze({
+    sound: true,
+    anim: true,
+    reduced: false,
+  }),
+});
+
 export class GameState {
-  constructor() {
+  constructor(repository = new LocalStorageRepository()) {
+    this.repository = repository;
     this.data = this.load();
   }
 
   load() {
-    try {
-      const saved = JSON.parse(localStorage.getItem('chaosGame_v2'));
-      return this.validateAndMerge(saved);
-    } catch {
-      return this.defaults();
-    }
+    return this.validateAndMerge(this.repository.load());
   }
 
   validateAndMerge(saved) {
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+      return this.defaults();
+    }
+
     const defaults = this.defaults();
-    if (!saved || typeof saved !== 'object') return defaults;
-    
+
     return {
       currentLevel: this.validateNumber(saved.currentLevel, defaults.currentLevel, 1, 9999),
-      bestScore: this.validateNumber(saved.bestScore, defaults.bestScore, 0, Infinity),
-      totalScore: this.validateNumber(saved.totalScore, defaults.totalScore, 0, Infinity),
+      bestScore: this.validateNumber(saved.bestScore, defaults.bestScore, 0, Number.MAX_SAFE_INTEGER),
+      totalScore: this.validateNumber(saved.totalScore, defaults.totalScore, 0, Number.MAX_SAFE_INTEGER),
       settings: this.validateSettings(saved.settings, defaults.settings),
     };
   }
 
   validateNumber(value, defaultValue, min, max) {
-    const num = Number(value);
-    if (isNaN(num) || num < min || num > max) return defaultValue;
-    return Math.floor(num);
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < min || number > max) {
+      return defaultValue;
+    }
+    return Math.floor(number);
   }
 
   validateSettings(saved, defaults) {
-    if (!saved || typeof saved !== 'object') return defaults;
-    
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
+      return { ...defaults };
+    }
+
     return {
       sound: typeof saved.sound === 'boolean' ? saved.sound : defaults.sound,
       anim: typeof saved.anim === 'boolean' ? saved.anim : defaults.anim,
@@ -42,23 +58,15 @@ export class GameState {
 
   defaults() {
     return {
-      currentLevel: 1,
-      bestScore: 0,
-      totalScore: 0,
-      settings: {
-        sound: true,
-        anim: true,
-        reduced: false,
-      },
+      currentLevel: DEFAULT_STATE.currentLevel,
+      bestScore: DEFAULT_STATE.bestScore,
+      totalScore: DEFAULT_STATE.totalScore,
+      settings: { ...DEFAULT_STATE.settings },
     };
   }
 
   save() {
-    try {
-      localStorage.setItem('chaosGame_v2', JSON.stringify(this.data));
-    } catch (e) {
-      console.warn('Failed to save game state:', e);
-    }
+    this.repository.save(this.data);
   }
 
   get(key) {
