@@ -1,87 +1,93 @@
 export class SoundManager {
-  constructor() {
+  constructor({ windowRef = globalThis } = {}) {
+    this.window = windowRef;
     this.enabled = true;
     this.ctx = null;
-    this.sounds = {};
     this.paused = false;
+    this.timeouts = new Set();
   }
 
   init() {
     if (!this.ctx) {
       try {
-        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) {
-        console.warn('Web Audio API not supported');
+        const AudioContext = this.window.AudioContext || this.window.webkitAudioContext;
+        if (!AudioContext) return;
+        this.ctx = new AudioContext();
+      } catch (error) {
+        console.warn('Web Audio API is not supported:', error);
+        return;
       }
     }
-    
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+    if (this.ctx.state === 'suspended') void this.ctx.resume();
   }
 
   pauseAudio() {
     this.paused = true;
-    if (this.ctx) {
-      this.ctx.suspend();
-    }
+    if (this.ctx?.state === 'running') void this.ctx.suspend();
   }
 
   resumeAudio() {
     this.paused = false;
-    if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
+    if (this.ctx?.state === 'suspended') void this.ctx.resume();
   }
 
-  play(freq, duration, type = 'sine', vol = 0.08) {
+  play(freq, duration, type = 'sine', volume = 0.08) {
     if (!this.enabled || !this.ctx || this.paused) return;
-    
+    if (!Number.isFinite(freq) || !Number.isFinite(duration) || duration <= 0) return;
+
     try {
-      const osc = this.ctx.createOscillator();
+      const now = this.ctx.currentTime;
+      const oscillator = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
-      
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-      
-      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
-      
-      osc.connect(gain);
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(freq, now);
+      gain.gain.setValueAtTime(Math.max(0.001, volume), now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      oscillator.connect(gain);
       gain.connect(this.ctx.destination);
-      
-      osc.start();
-      osc.stop(this.ctx.currentTime + duration);
-    } catch (e) {
-      // Silently fail audio
+      oscillator.start(now);
+      oscillator.stop(now + duration);
+    } catch (error) {
+      console.warn('Failed to play sound:', error);
     }
   }
 
-  playPick() {
-    this.play(350, 0.08, 'sine', 0.06);
+  schedule(callback, delay) {
+    const timeout = this.window.setTimeout(() => {
+      this.timeouts.delete(timeout);
+      callback();
+    }, delay);
+    this.timeouts.add(timeout);
+    return timeout;
   }
+
+  playPick() { this.play(350, 0.08, 'sine', 0.06); }
 
   playCorrect() {
     this.play(440, 0.12, 'sine', 0.08);
-    setTimeout(() => this.play(550, 0.12, 'sine', 0.08), 60);
+    this.schedule(() => this.play(550, 0.12, 'sine', 0.08), 60);
   }
 
-  playWrong() {
-    this.play(180, 0.25, 'sawtooth', 0.04);
-  }
+  playWrong() { this.play(180, 0.25, 'sawtooth', 0.04); }
 
   playCombo() {
     this.play(660, 0.15, 'sine', 0.08);
-    setTimeout(() => this.play(880, 0.15, 'sine', 0.08), 80);
+    this.schedule(() => this.play(880, 0.15, 'sine', 0.08), 80);
   }
 
   playLevelComplete() {
-    [440, 550, 660, 880].forEach((f, i) => {
-      setTimeout(() => this.play(f, 0.25, 'sine', 0.1), i * 100);
+    [440, 550, 660, 880].forEach((frequency, index) => {
+      this.schedule(() => this.play(frequency, 0.25, 'sine', 0.1), index * 100);
     });
   }
 
-  playTimerWarning() {
-    this.play(660, 0.08, 'square', 0.04);
+  playTimerWarning() { this.play(660, 0.08, 'square', 0.04); }
+
+  destroy() {
+    for (const timeout of this.timeouts) this.window.clearTimeout(timeout);
+    this.timeouts.clear();
+    if (this.ctx) void this.ctx.close();
+    this.ctx = null;
+    this.paused = false;
   }
 }
