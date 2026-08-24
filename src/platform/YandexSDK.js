@@ -3,11 +3,9 @@ let sdk = null;
 
 function loadSDK() {
   if (sdkPromise) return sdkPromise;
-
   sdkPromise = new Promise((resolve) => {
     if (typeof window === 'undefined') return resolve(null);
     if (window.YaGames) return resolve(window.YaGames);
-
     const script = document.createElement('script');
     script.src = '/sdk.js';
     script.async = true;
@@ -15,23 +13,25 @@ function loadSDK() {
     script.onerror = () => resolve(null);
     document.head.appendChild(script);
   });
-
   return sdkPromise;
 }
 
 export async function initYandexSDK() {
   const YaGames = await loadSDK();
   if (!YaGames?.init) return null;
-
   try {
     sdk = await YaGames.init();
     setupPlatformEvents(sdk);
-    sdk.features?.LoadingAPI?.ready?.();
     return sdk;
   } catch (error) {
     console.warn('[Yandex SDK] init failed:', error);
     return null;
   }
+}
+
+export async function markGameReady() {
+  const ysdk = sdk ?? await initYandexSDK();
+  ysdk?.features?.LoadingAPI?.ready?.();
 }
 
 function setupPlatformEvents(ysdk) {
@@ -42,7 +42,6 @@ function setupPlatformEvents(ysdk) {
 export async function showFullscreenAd() {
   const ysdk = sdk ?? await initYandexSDK();
   if (!ysdk?.adv?.showFullscreenAdv) return false;
-
   return new Promise((resolve) => {
     let settled = false;
     const finish = (wasShown) => {
@@ -50,7 +49,6 @@ export async function showFullscreenAd() {
       settled = true;
       resolve(Boolean(wasShown));
     };
-
     try {
       ysdk.adv.showFullscreenAdv({
         callbacks: {
