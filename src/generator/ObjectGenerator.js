@@ -1,32 +1,27 @@
 import { RuleEngine } from '../rules/RuleEngine.js';
 
+const BOOK_FIELDS = Object.freeze(['color', 'size', 'genre', 'symbol', 'thickness']);
+
 export class ObjectGenerator {
-  static generate(rng, count, theme, containers) {
+  static generate(rng, count, theme, containers, difficulty) {
     const props = theme.getAllBookProperties();
-    const objects = [];
     const normalContainers = containers.filter(container => container.type !== 'forbidden');
-    let attempts = 0;
-    const maxAttempts = 2000;
+    const objects = [];
+    const maxAttempts = Math.max(100, count * 200);
 
-    while (objects.length < count && attempts < maxAttempts) {
-      attempts += 1;
+    for (let attempt = 0; objects.length < count && attempt < maxAttempts; attempt += 1) {
       const object = this.createRandomBook(rng, props, objects.length);
-      if (normalContainers.some(container => RuleEngine.evaluate(object, container.rule))) {
-        objects.push(object);
-      }
+      if (normalContainers.some(container => RuleEngine.evaluate(object, container.rule))) objects.push(object);
     }
 
-    const mainRule = containers[0]?.rule;
-    while (objects.length < count && attempts < maxAttempts * 2) {
-      attempts += 1;
-      const object = this.createRandomBook(rng, props, objects.length);
-      if (!mainRule || RuleEngine.evaluate(object, mainRule)) objects.push(object);
+    const fallbackRule = normalContainers[0]?.rule;
+    for (let attempt = 0; objects.length < count && attempt < maxAttempts; attempt += 1) {
+      const object = this.createBookFromRule(fallbackRule, props, objects.length) || this.createRandomBook(rng, props, objects.length);
+      if (!fallbackRule || RuleEngine.evaluate(object, fallbackRule)) objects.push(object);
     }
 
-    while (objects.length < Math.min(2, count)) {
-      const object = this.createBookFromRule(mainRule, props, objects.length);
-      if (object) objects.push(object);
-      else objects.push(this.createRandomBook(rng, props, objects.length));
+    while (objects.length < count) {
+      objects.push(this.createRandomBook(rng, props, objects.length));
     }
 
     return rng.shuffle(objects);
@@ -45,7 +40,12 @@ export class ObjectGenerator {
   }
 
   static createBookFromRule(rule, props, index) {
-    const base = {
+    const base = this.createBaseBook(props, index);
+    return this.applyRuleConstraints(base, rule);
+  }
+
+  static createBaseBook(props, index) {
+    return {
       uid: `book_${index}`,
       type: 'book',
       color: props.colors[0],
@@ -54,22 +54,17 @@ export class ObjectGenerator {
       symbol: props.symbols[0],
       thickness: props.thicknesses[0],
     };
+  }
 
-    if (!rule) return base;
-
-    if (rule.field && rule.value !== undefined && Object.hasOwn(base, rule.field)) {
-      return { ...base, [rule.field]: rule.value };
-    }
-
+  static applyRuleConstraints(book, rule) {
+    if (!rule) return book;
     if (rule.type === 'and') {
-      return rule.rules.reduce((book, child) => {
-        if (child.field && child.value !== undefined && Object.hasOwn(book, child.field)) {
-          return { ...book, [child.field]: child.value };
-        }
-        return book;
-      }, base);
+      return rule.rules.reduce((current, child) => this.applyRuleConstraints(current, child), book);
     }
-
-    return RuleEngine.evaluate(base, rule) ? base : null;
+    if (rule.type === 'or' || rule.type === 'not') return RuleEngine.evaluate(book, rule) ? book : null;
+    if (BOOK_FIELDS.includes(rule.field) && rule.op === 'eq' && rule.value !== undefined) {
+      return { ...book, [rule.field]: rule.value };
+    }
+    return RuleEngine.evaluate(book, rule) ? book : null;
   }
 }
