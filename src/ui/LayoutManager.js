@@ -15,12 +15,10 @@ export class LayoutManager {
     this.shelfCount = 1;
   }
 
-  /** Inject layout CSS, install responsive listeners and return an idempotent cleanup function. */
   install() {
     const existing = this.document.getElementById(STYLE_ID);
-    if (existing) {
-      this.style = existing;
-    } else {
+    if (existing) this.style = existing;
+    else {
       const style = this.document.createElement('style');
       style.id = STYLE_ID;
       style.textContent = this.buildCSS();
@@ -29,58 +27,43 @@ export class LayoutManager {
     }
 
     this.updateLayout();
-
     this.resizeHandler = () => this.updateLayout();
     this.orientationHandler = () => this.scheduleLayoutUpdate();
-
     this.window?.addEventListener?.('resize', this.resizeHandler, { passive: true });
     this.window?.addEventListener?.('orientationchange', this.orientationHandler, { passive: true });
 
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.updateLayout());
-      const target = this.document.documentElement;
-      this.resizeObserver.observe(target);
+      this.resizeObserver.observe(this.document.documentElement);
     }
-
     return () => this.destroy();
   }
 
-  /**
-   * Calculate geometry from the actual viewport.
-   * Fixed pixels remain the desktop design reference; mobile gets a proportional layout.
-   */
   calculateLayout(windowWidth, windowHeight, shelfCount = this.shelfCount) {
-    const safeWidth = Math.max(1, Number(windowWidth) || 1);
-    const safeHeight = Math.max(1, Number(windowHeight) || 1);
-    const safeCount = Math.max(1, Number(shelfCount) || 1);
-    const isMobile = safeWidth < 768;
-    const isLandscape = safeWidth > safeHeight;
-    const isSmallMobile = safeWidth < 480;
+    const width = Math.max(1, Number(windowWidth) || 1);
+    const height = Math.max(1, Number(windowHeight) || 1);
+    const count = Math.max(1, Number(shelfCount) || 1);
+    const isMobile = width < 768;
+    const isLandscape = width > height;
+    const isSmallMobile = width < 480;
 
+    // Desktop keeps ALL shelves in one row. The game supports up to eight shelves.
+    // Mobile is the only layout where shelves are allowed to wrap into rows.
     let columns;
-    if (isMobile && isLandscape) {
-      columns = Math.min(5, safeCount);
-    } else if (isSmallMobile) {
-      columns = Math.min(2, safeCount);
-    } else if (isMobile) {
-      columns = Math.min(3, safeCount);
-    } else {
-      columns = Math.min(5, safeCount);
-    }
+    if (!isMobile) columns = count;
+    else if (isLandscape) columns = Math.min(5, count);
+    else if (isSmallMobile) columns = Math.min(2, count);
+    else columns = Math.min(3, count);
 
-    // Keep the original 830x640 desktop scene. On smaller screens the scene itself
-    // gets smaller instead of relying on CSS transform: scale(), so client coordinates
-    // used by DragController stay in the same coordinate space as getBoundingClientRect().
+    const rows = Math.max(1, Math.ceil(count / columns));
     const horizontalMargin = isMobile ? 12 : 24;
     const verticalMargin = isLandscape && isMobile ? 12 : 24;
-    const gameWidth = Math.min(830, Math.max(1, safeWidth - horizontalMargin * 2));
-    const gameHeight = Math.min(640, Math.max(1, safeHeight - verticalMargin * 2));
-
+    const gameWidth = Math.min(830, Math.max(1, width - horizontalMargin * 2));
+    const gameHeight = Math.min(640, Math.max(1, height - verticalMargin * 2));
     const scaleFactor = Math.min(gameWidth / 830, gameHeight / 640);
     const bookWidth = Math.max(isMobile ? 34 : 52, Math.round(72 * scaleFactor));
     const bookHeight = Math.max(isMobile ? 50 : 75, Math.round(104 * scaleFactor));
 
-    const rows = Math.max(1, Math.ceil(safeCount / columns));
     const gap = isLandscape && isMobile ? 6 : isMobile ? 8 : 14;
     const usableHeight = Math.max(1, gameHeight - (isMobile ? 24 : 40));
     const shelfHeight = Math.max(
@@ -88,7 +71,6 @@ export class LayoutManager {
       Math.min(isMobile ? (isLandscape ? 330 : 210) : 460, (usableHeight - gap * Math.max(0, rows - 1)) / rows),
     );
     const shelfContentHeight = Math.max(1, shelfHeight - (isMobile ? 18 : 25));
-    const stackGap = Math.round(-62 * scaleFactor);
 
     return {
       columns,
@@ -100,7 +82,7 @@ export class LayoutManager {
       shelfHeight: Math.round(shelfHeight),
       shelfContentHeight: Math.round(shelfContentHeight),
       shelfGap: gap,
-      bookStackGap: Math.min(-18, stackGap),
+      bookStackOffset: Math.round(62 * scaleFactor),
       bookLift: Math.max(4, Math.round(10 * scaleFactor)),
       scaleFactor,
       isMobile,
@@ -108,19 +90,15 @@ export class LayoutManager {
     };
   }
 
-  /** Keep the current level's shelves responsive instead of forcing one row. */
   updateShelfCount(count) {
     this.shelfCount = Math.max(1, Number(count) || 1);
     this.updateLayout();
   }
 
-  /** Apply calculated geometry as CSS custom properties. */
   updateLayout() {
     if (!this.document?.documentElement) return;
-
-    const view = this.window;
-    const width = view?.innerWidth ?? this.document.documentElement.clientWidth;
-    const height = view?.innerHeight ?? this.document.documentElement.clientHeight;
+    const width = this.window?.innerWidth ?? this.document.documentElement.clientWidth;
+    const height = this.window?.innerHeight ?? this.document.documentElement.clientHeight;
     const layout = this.calculateLayout(width, height, this.shelfCount);
     const root = this.document.documentElement;
 
@@ -134,24 +112,19 @@ export class LayoutManager {
       '--book-width': `${layout.bookWidth}px`,
       '--book-height': `${layout.bookHeight}px`,
       '--shelf-content-height': `${layout.shelfContentHeight}px`,
-      '--book-stack-gap': `${layout.bookStackGap}px`,
+      '--book-stack-offset': `${layout.bookStackOffset}px`,
       '--book-lift': `${layout.bookLift}px`,
     };
-
     for (const [property, value] of Object.entries(values)) root.style.setProperty(property, value);
     this.lastLayout = layout;
   }
 
   scheduleLayoutUpdate() {
     const raf = this.window?.requestAnimationFrame;
-    if (typeof raf === 'function') {
-      raf(() => this.updateLayout());
-      return;
-    }
-    setTimeout(() => this.updateLayout(), 100);
+    if (typeof raf === 'function') raf(() => this.updateLayout());
+    else setTimeout(() => this.updateLayout(), 100);
   }
 
-  /** Build the complete puzzle layout stylesheet from shared asset dimensions. */
   buildCSS() {
     const book = BOOK_SIZES.medium;
     return `
@@ -166,7 +139,7 @@ export class LayoutManager {
         --book-width: ${book.width}px;
         --book-height: ${book.height}px;
         --shelf-content-height: 435px;
-        --book-stack-gap: -62px;
+        --book-stack-offset: 62px;
         --book-lift: 10px;
       }
 
@@ -181,9 +154,7 @@ export class LayoutManager {
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
       }
 
-      @supports not (height: 100dvh) {
-        #app { height: 100vh; }
-      }
+      @supports not (height: 100dvh) { #app { height: 100vh; } }
 
       #app .game-table {
         position: absolute;
@@ -244,11 +215,11 @@ export class LayoutManager {
         flex-direction: column;
         justify-content: flex-end;
         align-items: center;
-        gap: var(--book-stack-gap);
         padding: 0 11px 15px;
         overflow: visible;
       }
 
+      /* CSS gap cannot be negative. Use negative margins to create the intended stack overlap. */
       #app .game-table .shelf-items > .book-item {
         position: relative;
         left: auto;
@@ -265,11 +236,15 @@ export class LayoutManager {
         transform-origin: center bottom;
       }
 
+      #app .game-table .shelf-items > .book-item + .book-item {
+        margin-top: calc(-1 * var(--book-stack-offset));
+      }
+
       #app .game-table .shelf-items > .book-item:nth-last-child(1) { z-index: 4; }
       #app .game-table .shelf-items > .book-item:nth-last-child(2) { z-index: 3; }
       #app .game-table .shelf-items > .book-item:nth-last-child(3) { z-index: 2; }
       #app .game-table .shelf-items > .book-item:nth-last-child(4) { z-index: 1; }
-      #app .game-table .shelf-items > .book-item .book-art { display: block; width: var(--book-width); height: var(--book-height); max-width: var(--book-width); max-height: var(--book-height); }
+      #app .game-table .shelf-items > .book-item .book-art { display:block; width:var(--book-width); height:var(--book-height); max-width:var(--book-width); max-height:var(--book-height); }
       #app .game-table .book-item.top-book { cursor: grab; }
       #app .game-table .book-item:not(.top-book) { cursor: default; }
       #app .game-table .book-item.is-dragging { cursor: grabbing; }
@@ -278,26 +253,25 @@ export class LayoutManager {
       #app .game-table .score-popup { z-index: 80; }
 
       @media (max-width: 767px) {
-        #app .game-table .containers-zone { left: 10px; right: 10px; }
-        #app .game-table .shelf-items { padding-left: 6px; padding-right: 6px; padding-bottom: 10px; }
+        #app .game-table .containers-zone { left:10px; right:10px; }
+        #app .game-table .shelf-items { padding-left:6px; padding-right:6px; padding-bottom:10px; }
       }
 
       @media (orientation: landscape) and (max-width: 767px) {
-        #app .game-table .containers-zone { gap: var(--shelf-gap); }
-        #app .game-table .shelf-items { padding-left: 4px; padding-right: 4px; }
+        #app .game-table .containers-zone { gap:var(--shelf-gap); }
+        #app .game-table .shelf-items { padding-left:4px; padding-right:4px; }
       }
 
       @media (orientation: portrait) and (max-width: 767px) {
-        #app .game-table .containers-zone { grid-template-columns: repeat(var(--shelf-columns), minmax(0, 1fr)); }
+        #app .game-table .containers-zone { grid-template-columns:repeat(var(--shelf-columns),minmax(0,1fr)); }
       }
 
       @media (max-height: 500px) {
-        #app .game-table { max-height: calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+        #app .game-table { max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
       }
     `;
   }
 
-  /** Remove injected layout styles, listeners and runtime variables. */
   destroy() {
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -307,12 +281,8 @@ export class LayoutManager {
     this.orientationHandler = null;
     this.style?.remove();
     this.style = null;
-
-    const properties = [
-      '--shelf-columns', '--shelf-rows', '--game-width', '--game-height',
-      '--shelf-height', '--shelf-gap', '--book-width', '--book-height',
-      '--shelf-content-height', '--book-stack-gap', '--book-lift',
-    ];
-    for (const property of properties) this.document.documentElement.style.removeProperty(property);
+    for (const property of ['--shelf-columns','--shelf-rows','--game-width','--game-height','--shelf-height','--shelf-gap','--book-width','--book-height','--shelf-content-height','--book-stack-offset','--book-lift']) {
+      this.document.documentElement.style.removeProperty(property);
+    }
   }
 }
