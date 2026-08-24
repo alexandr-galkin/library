@@ -40,7 +40,7 @@ export class DragController {
     if (this.isPaused || this.isBlocked()) return;
     const item = event.target.closest?.('.book-item');
     if (!item || item.classList.contains('correct')) return;
-    const object = this.getLevel()?.objects?.find(({ uid }) => uid === item.dataset.uid);
+    const object = this.getLevel()?.objects?.find(({ uid }) => String(uid) === String(item.dataset.uid));
     if (!object) return;
     event.preventDefault();
     const rect = item.getBoundingClientRect();
@@ -57,7 +57,7 @@ export class DragController {
     this.isDragging = true;
     item.classList.add('dragging');
     if (typeof item.setPointerCapture === 'function' && this.pointerId !== null) {
-      try { item.setPointerCapture(this.pointerId); } catch { /* pointer may already be released */ }
+      try { item.setPointerCapture(this.pointerId); } catch { /* pointer may already be captured */ }
     }
     this.root.body?.appendChild(item);
     this.updatePosition(event.clientX, event.clientY);
@@ -83,9 +83,10 @@ export class DragController {
     if (target && this.validator.canDrop(this.dragItem, target.container)) {
       const item = this.dragItem;
       const element = this.dragEl;
+      const containerElement = target.element;
       this.releasePointer();
       this.clearDragState();
-      this.onCorrect(item, element, target.element);
+      this.onCorrect(item, element, containerElement);
       return;
     }
     const element = this.dragEl;
@@ -133,30 +134,32 @@ export class DragController {
     this.dragEl.style.top = `${clientY - this.offsetY}px`;
   }
 
+  findTargetContainer(clientX, clientY) {
+    const level = this.getLevel();
+    if (!level) return null;
+    const hit = this.root.elementFromPoint?.(clientX, clientY)?.closest?.('.shelf-container');
+    if (hit) {
+      const container = level.containers.find(({ id }) => String(id) === String(hit.dataset.id));
+      if (container) return { container, element: hit };
+    }
+    for (const element of this.root.querySelectorAll('.shelf-container')) {
+      if (!pointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
+      const container = level.containers.find(({ id }) => String(id) === String(element.dataset.id));
+      if (container) return { container, element };
+    }
+    return null;
+  }
+
   updateContainerHighlights(clientX, clientY) {
     const level = this.getLevel();
     if (!level || !this.dragItem) return;
-    for (const element of this.root.querySelectorAll('.shelf-container')) {
-      element.classList.remove('highlight', 'reject');
-      if (!pointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
-      const container = level.containers.find(({ id }) => id === element.dataset.id);
-      if (container) element.classList.add(this.validator.canDrop(this.dragItem, container) ? 'highlight' : 'reject');
-    }
+    const target = this.findTargetContainer(clientX, clientY);
+    for (const element of this.root.querySelectorAll('.shelf-container')) element.classList.remove('highlight', 'reject');
+    if (target) target.element.classList.add(this.validator.canDrop(this.dragItem, target.container) ? 'highlight' : 'reject');
   }
 
   clearContainerHighlights() {
     this.root.querySelectorAll('.shelf-container').forEach(element => element.classList.remove('highlight', 'reject'));
-  }
-
-  findTargetContainer(clientX, clientY) {
-    const level = this.getLevel();
-    if (!level) return null;
-    for (const element of this.root.querySelectorAll('.shelf-container')) {
-      if (!pointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
-      const container = level.containers.find(({ id }) => id === element.dataset.id);
-      if (container) return { container, element };
-    }
-    return null;
   }
 
   destroy() {
