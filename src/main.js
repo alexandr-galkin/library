@@ -1,5 +1,5 @@
 import { Game } from './game/Game.js';
-import { initYandexSDK, markGameReady } from './platform/YandexSDK.js';
+import { initYandexSDK } from './platform/YandexSDK.js';
 
 const app = document.getElementById('app');
 
@@ -7,6 +7,11 @@ if (!app) {
   throw new Error('Application root #app was not found');
 }
 
-const sdkReady = initYandexSDK();
-new Game({ app });
-sdkReady.then(() => markGameReady());
+async function bootstrap() {
+  // Initialize the platform before constructing the UI so the first render
+  // already uses the locale selected by Yandex Games.
+  await initYandexSDK();
+  new Game({ app });
+}
+
+void bootstrap();
