@@ -6,10 +6,10 @@ export class LevelComplete {
     this.overlay.id = 'level-complete-overlay';
     this.overlay.hidden = true;
     this.overlay.addEventListener('click', event => {
-      if (event.target.matches('#btn-next-level')) {
-        this.hide();
-        setTimeout(() => this.onNextLevel?.(), 300);
-      }
+      const button = event.target.closest?.('#btn-next-level');
+      if (!button || !this.overlay.contains(button)) return;
+      this.hide();
+      setTimeout(() => this.onNextLevel?.(), 300);
     });
     document.body.appendChild(this.overlay);
   }
