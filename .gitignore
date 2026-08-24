@@ -1,0 +1,126 @@
+# ============ ЗАВИСИМОСТИ ============
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============ СБОРКА ============
+dist/
+build/
+out/
+.vite/
+.eslintcache
+*.tsbuildinfo
+
+# ============ ЛОГИ ============
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============ ВРЕМЕННЫЕ ФАЙЛЫ ============
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+.DS_Store
+Thumbs.db
+
+# ============ IDE ============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+*.sublime-project
+*.sublime-workspace
+
+# ============ РЕДАКТОРЫ ============
+*.code-workspace
+.vscode-test/
+.history/
+
+# ============ СИСТЕМНЫЕ ФАЙЛЫ ============
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+
+# ============ ПЕРЕМЕННЫЕ ОКРУЖЕНИЯ ============
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ============ КЛЮЧИ И СЕРТИФИКАТЫ ============
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+
+# ============ ТЕСТЫ ============
+coverage/
+.nyc_output/
+.cypress/
+jest.config.js
+
+# ============ ДОКУМЕНТАЦИЯ (если не нужна) ============
+# docs/
+# *.md
+
+# ============ ИЗОБРАЖЕНИЯ И МЕДИА (если большие) ============
+# *.psd
+# *.sketch
+# *.fig
+# *.ai
+# *.eps
+
+# ============ АРХИВЫ ============
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ============ СПЕЦИФИЧЕСКИЕ ДЛЯ ПРОЕКТА ============
+# Локальные настройки
+.local/
+local.config.js
+
+# Сохранения игры (если хранятся в файлах)
+saves/
+*.save
+
+# Скриншоты
+screenshots/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+
+# Бэкапы
+backup/
+*.bak
+*.backup
+
+# Яндекс игры (если есть SDK)
+yandex-sdk/
+sdk/
+
+# PWA
+sw.js
+workbox-*.js
+manifest.json
