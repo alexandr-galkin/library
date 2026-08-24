@@ -45,7 +45,7 @@ export class DragController {
     const object = level?.objects?.find(({ uid }) => String(uid) === String(item.dataset.uid));
     if (!object) return;
     const source = level.containers.find(container => container.id === object.shelfId);
-    if (!source || source.items[source.items.length - 1] !== object.uid) {
+    if (!source || source.items[0] !== object.uid) {
       item.classList.add('shake');
       setTimeout(() => item.classList.remove('shake'), 250);
       return;
