@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 export class Menu {
   constructor({ getState, onPlay, onSettings }) {
     this.getState = getState;
@@ -30,22 +32,22 @@ export class Menu {
             <div class="menu-logo">
               <div class="logo-icon">📚</div>
               <div class="logo-text">
-                <h1 class="menu-title">РАЗБЕРИ ХАОС</h1>
-                <div class="menu-subtitle">Библиотека</div>
+                <h1 class="menu-title">${t('game.title')}</h1>
+                <div class="menu-subtitle">${t('game.subtitle')}</div>
               </div>
             </div>
-            <p class="menu-description">Разложи книги по полкам.<br>Порядок — это сила.</p>
+            <p class="menu-description">${t('game.description')}</p>
           </div>
           <div class="menu-stats-grid">
-            <div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-value">${state.currentLevel}</div><div class="stat-label">Уровень</div></div>
-            <div class="stat-card"><div class="stat-icon">🏆</div><div class="stat-value">${state.bestScore}</div><div class="stat-label">Рекорд</div></div>
-            <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-value">${state.totalScore}</div><div class="stat-label">Всего очков</div></div>
+            <div class="stat-card"><div class="stat-icon">🎯</div><div class="stat-value">${state.currentLevel}</div><div class="stat-label">${t('game.level')}</div></div>
+            <div class="stat-card"><div class="stat-icon">🏆</div><div class="stat-value">${state.bestScore}</div><div class="stat-label">${t('game.record')}</div></div>
+            <div class="stat-card"><div class="stat-icon">⭐</div><div class="stat-value">${state.totalScore}</div><div class="stat-label">${t('game.totalScore')}</div></div>
           </div>
           <div class="menu-buttons">
-            <button class="play-button" id="menu-play"><span class="play-icon">▶</span><span class="play-text">ИГРАТЬ</span><span class="play-shine"></span></button>
-            <button class="settings-button" id="menu-settings"><span class="settings-icon">⚙</span><span>Настройки</span></button>
+            <button class="play-button" id="menu-play"><span class="play-icon">▶</span><span class="play-text">${t('game.play')}</span><span class="play-shine"></span></button>
+            <button class="settings-button" id="menu-settings"><span class="settings-icon">⚙</span><span>${t('game.settings')}</span></button>
           </div>
-          <div class="menu-footer"><span class="version">v1.0</span><span class="hint">💡 Перетаскивай книги на полки</span></div>
+          <div class="menu-footer"><span class="version">v1.0</span><span class="hint">${t('game.hint')}</span></div>
         </div>
       </div>
     `;
