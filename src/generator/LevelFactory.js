@@ -3,6 +3,7 @@ import { DifficultyManager } from './DifficultyManager.js';
 import { RuleGenerator } from './RuleGenerator.js';
 import { ContainerGenerator } from './ContainerGenerator.js';
 import { ObjectGenerator } from './ObjectGenerator.js';
+import { RuleEngine } from '../rules/RuleEngine.js';
 
 export class LevelFactory {
   constructor({ theme }) {
@@ -26,21 +27,12 @@ export class LevelFactory {
       difficulty,
       theme: this.theme.name,
       rule: mainRule,
-      ruleText: mainRule ? formatRule(mainRule) : '',
+      ruleText: RuleEngine.describe(mainRule, labels),
       objects,
       containers,
       modifiers: DifficultyManager.getModifierChance(difficulty),
       timeLimit: DifficultyManager.getTimeLimit(difficulty, objects.length),
-      seed: rng.seed,
+      seed,
     };
   }
-}
-
-function formatRule(rule) {
-  if (rule.type === 'and') return rule.rules.map(formatRule).join(' + ');
-  if (rule.type === 'or') return rule.rules.map(formatRule).join(' / ');
-  if (rule.type === 'not') return `НЕ ${formatRule(rule.rule)}`;
-  const field = String(rule.field).toUpperCase();
-  const value = String(rule.valueLabel ?? rule.value).toUpperCase();
-  return rule.op === 'ne' ? `${field} ≠ ${value}` : `${field}: ${value}`;
 }
