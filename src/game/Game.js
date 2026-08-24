@@ -14,17 +14,22 @@ import { Settings } from '../ui/Settings.js';
 import { LevelComplete } from '../ui/LevelComplete.js';
 
 export class Game {
-  constructor({ app = document.getElementById('app') } = {}) {
+  constructor({ app = document.getElementById('app'), storage, documentRef = document } = {}) {
     if (!app) throw new Error('Game requires an #app element');
 
     this.app = app;
-    this.state = new GameState();
+    this.document = documentRef;
+    this.state = new GameState(storage);
     this.stats = new GameStats();
     this.themeManager = new ThemeManager();
     this.theme = this.themeManager.current;
     this.sound = new SoundManager();
     this.particles = new ParticleSystem();
-    this.timer = new GameTimer({ onTick: seconds => this.handleTimerTick(seconds), onComplete: () => this.handleFail() });
+    this.timer = new GameTimer({
+      onTick: seconds => this.handleTimerTick(seconds),
+      onComplete: () => this.handleFail(),
+    });
+
     this.drag = null;
     this.ui = null;
     this.currentLevel = null;
@@ -40,6 +45,7 @@ export class Game {
       onPlay: () => this.startGame(),
       onSettings: () => this.showSettings(),
     });
+
     this.settings = new Settings({
       getState: () => this.state.data,
       sound: this.sound,
@@ -54,30 +60,31 @@ export class Game {
         }
       },
     });
-    this.levelComplete = new LevelComplete(this);
+
+    this.levelComplete = new LevelComplete({
+      onNextLevel: () => this.nextLevel(),
+    });
 
     this.theme.injectStyles();
     this.app.append(this.menu.container, this.settings.container);
     this.menu.show();
     this.settings.hide();
     this.applySettings();
-    document.addEventListener('visibilitychange', this.visibilityHandler);
+    this.document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
   get score() { return this.stats.totalScore; }
-  set score(value) { this.stats.totalScore = Math.max(0, value); }
   get combo() { return this.stats.combo; }
   get levelScore() { return this.stats.levelScore; }
   get placed() { return this.stats.placed; }
   get mistakes() { return this.stats.mistakes; }
   get isPaused() { return this.status === GameStatus.PAUSED; }
-  set isPaused(value) { if (value) this.status = GameStatus.PAUSED; else if (this.status === GameStatus.PAUSED) this.status = GameStatus.PLAYING; }
 
   applySettings() {
     const settings = this.state.data.settings;
     this.sound.enabled = settings.sound !== false;
     this.animations = settings.anim !== false;
-    document.body.classList.toggle('reduced-motion', settings.reduced === true);
+    this.document.body.classList.toggle('reduced-motion', settings.reduced === true);
   }
 
   updateSetting(key, value) {
@@ -91,7 +98,7 @@ export class Game {
   }
 
   handleVisibilityChange() {
-    if (document.hidden && this.isInGame && !this.isTransitioning && !this.isPaused) {
+    if (this.document.hidden && this.isInGame && !this.isTransitioning && !this.isPaused) {
       this.pauseGame();
       this.ui?.showPauseMenu();
     }
@@ -137,7 +144,7 @@ export class Game {
         getLevel: () => this.currentLevel,
         isBlocked: () => this.isTransitioning || this.isPaused,
         sound: this.sound,
-        root: document,
+        root: this.document,
         onCorrect: (object, element, container) => this.handleCorrect(object, element, container),
         onWrong: element => this.handleWrong(element),
       });
@@ -146,6 +153,7 @@ export class Game {
       this.ui.setRule(this.currentLevel.ruleText, this.theme.displayName);
       this.ui.renderObjects(this.currentLevel.objects, this.theme);
       this.ui.renderContainers(this.currentLevel.containers);
+
       if (this.currentLevel.timeLimit) {
         this.ui.showTimer(this.currentLevel.timeLimit);
         this.startTimer(this.currentLevel.timeLimit);
@@ -288,7 +296,7 @@ export class Game {
 
   destroy() {
     this.cleanupLevel();
-    document.removeEventListener('visibilitychange', this.visibilityHandler);
+    this.document.removeEventListener('visibilitychange', this.visibilityHandler);
     this.timer.destroy();
     this.particles.destroy();
     this.menu.destroy();
