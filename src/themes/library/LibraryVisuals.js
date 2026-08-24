@@ -32,9 +32,28 @@ export function installLibraryVisuals(documentRef = document) {
     @keyframes libraryScorePop { 0%{opacity:0;transform:translate(-50%,8px) scale(.75)} 18%{opacity:1;transform:translate(-50%,-4px) scale(1.12)} 100%{opacity:0;transform:translate(-50%,-48px) scale(.94)} }
     .combo-display.show { animation:libraryComboIn .35s cubic-bezier(.2,1.4,.4,1); }
     @keyframes libraryComboIn { 0%{opacity:0;transform:translateX(-50%) scale(.6) rotate(-3deg)} 100%{opacity:1;transform:translateX(-50%) scale(1) rotate(0)} }
+    .modal-overlay { backdrop-filter:blur(7px); }
     .modal-card { border-color:rgba(212,173,82,.34); background:linear-gradient(180deg,rgba(75,49,30,.98),rgba(38,23,14,.98)); box-shadow:0 30px 80px rgba(0,0,0,.68),inset 0 1px 0 rgba(255,235,190,.08); }
-    @media (max-width:700px) { .hud-bar{padding:8px;gap:4px}.hud-item{font-size:.68rem;padding:4px 5px}.menu-button{padding:7px 8px}.menu-button .menu-text{display:none}.rule-banner{top:48px;padding:8px 12px;min-width:0}.objects-zone{width:96%;height:17%;bottom:40%;gap:7px}.containers-zone{width:99%;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:5px}.shelf-container{min-height:78px}.shelf-label{font-size:.58rem}.shelf-items{min-height:46px;padding:4px}.game-table{width:96%;bottom:18%;height:20%} }
-    @media (prefers-reduced-motion:reduce) { .book-item,.shelf-container,.score-popup,.combo-display{animation:none!important;transition:none!important} }
+    .level-complete-card { width:min(92vw,520px); padding:28px; border-radius:22px; text-align:center; }
+    .complete-header { margin-bottom:12px; }
+    .complete-icon { font-size:3.2rem; filter:drop-shadow(0 8px 14px rgba(0,0,0,.4)); animation:libraryTrophy .8s cubic-bezier(.2,1.5,.4,1) both; }
+    .complete-title { color:var(--library-paper); font-size:clamp(1.35rem,4vw,2rem); font-weight:900; letter-spacing:.04em; margin-top:6px; }
+    .complete-level { color:var(--library-paper-dim); font-size:.82rem; margin-top:5px; }
+    .stars-container { display:flex; justify-content:center; gap:8px; margin:14px 0 18px; }
+    .complete-star { font-size:2rem; opacity:.28; transform:scale(.9); }
+    .complete-star.filled { opacity:1; filter:drop-shadow(0 0 10px rgba(212,173,82,.3)); animation:libraryStar .45s cubic-bezier(.2,1.6,.4,1) both; }
+    .complete-star:nth-child(2){animation-delay:.08s}.complete-star:nth-child(3){animation-delay:.16s}
+    .score-breakdown { display:grid; gap:7px; padding:14px; border-radius:14px; background:rgba(18,10,6,.32); border:1px solid rgba(212,173,82,.12); text-align:left; }
+    .score-row,.score-total { display:flex; justify-content:space-between; gap:14px; color:var(--library-paper-dim); font-size:.82rem; }
+    .score-row strong { color:var(--library-paper); }
+    .score-total { margin-top:6px; padding-top:10px; border-top:1px solid rgba(212,173,82,.16); color:var(--library-paper); font-weight:900; font-size:1rem; }
+    #btn-next-level { width:100%; margin-top:16px; padding:14px 18px; border:1px solid rgba(255,232,170,.2); border-radius:12px; background:linear-gradient(135deg,#d4ad52,#a67c24); color:#21160c; font-weight:900; cursor:pointer; transition:transform .16s ease,box-shadow .16s ease; }
+    #btn-next-level:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(212,173,82,.2); }
+    #btn-next-level:active { transform:translateY(0) scale(.99); }
+    @keyframes libraryTrophy { from{opacity:0;transform:translateY(10px) scale(.7) rotate(-6deg)} to{opacity:1;transform:none} }
+    @keyframes libraryStar { from{transform:scale(.4) rotate(-20deg)} to{transform:scale(1) rotate(0)} }
+    @media (max-width:700px) { .hud-bar{padding:8px;gap:4px}.hud-item{font-size:.68rem;padding:4px 5px}.menu-button{padding:7px 8px}.rule-banner{top:48px;padding:8px 12px;min-width:0}.objects-zone{width:96%;height:17%;bottom:40%;gap:7px}.containers-zone{width:99%;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:5px}.shelf-container{min-height:78px}.shelf-label{font-size:.58rem}.shelf-items{min-height:46px;padding:4px}.game-table{width:96%;bottom:18%;height:20%}.level-complete-card{padding:22px 16px}.score-row{font-size:.76rem} }
+    @media (prefers-reduced-motion:reduce) { .book-item,.shelf-container,.score-popup,.combo-display,.complete-icon,.complete-star{animation:none!important;transition:none!important} }
   `;
   documentRef.head.append(style);
 }
