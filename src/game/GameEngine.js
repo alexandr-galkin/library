@@ -20,7 +20,7 @@ export class GameEngine {
     this.cleanupLevel(); this.history = []; this.layoutManager.updateShelfCount(level.containers.length);
     this.renderer = new GameRenderer({ app: this.app, theme: this.theme, documentRef: this.document, actions: { onPause: () => { this.pause(); this.renderer?.showPauseMenu(); }, onUndo: () => this.undoMove(), onRetry: () => this.retry(), onResume: () => this.resume(), onSettings: () => this.actions.onSettings?.(), onMenu: () => this.actions.onMenu?.() } });
     this.drag = new DragController({ getLevel: () => this.level, isBlocked: () => this.isTransitioning || this.isPaused || !this.isPlaying, sound: this.sound, root: this.document, onDrop: (object, container, element) => this.handleDrop(object, container, element), onWrong: element => this.handleWrong(element), eventBus: this.eventBus });
-    this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves); this.renderer.setRule(level.ruleText, this.theme.displayName); this.renderer.renderContainers(level.containers, level.objects); this.eventBus.emit('level:started', level);
+    this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves); this.renderer.setRule(level.ruleText); this.renderer.renderContainers(level.containers, level.objects); this.eventBus.emit('level:started', level);
   }
   handleDrop(object, target, targetElement) {
     if (!this.isPlaying || this.isTransitioning || this.isPaused || !object || !target) return false;
