@@ -1,9 +1,10 @@
-import { DropValidator, pointInRect } from './DropValidator.js';
+import { BookSortDropValidator } from './BookSortDropValidator.js';
+import { pointInRect } from './DropValidator.js';
 
 const DRAG_THRESHOLD = 5;
 
 export class DragController {
-  constructor({ getLevel, isBlocked = () => false, sound = null, onCorrect = () => {}, onWrong = () => {}, root = document, validator = new DropValidator() } = {}) {
+  constructor({ getLevel, isBlocked = () => false, sound = null, onCorrect = () => {}, onWrong = () => {}, root = document, validator = new BookSortDropValidator() } = {}) {
     if (typeof getLevel !== 'function') throw new TypeError('DragController requires getLevel()');
     this.getLevel = getLevel;
     this.isBlocked = isBlocked;
@@ -40,8 +41,15 @@ export class DragController {
     if (this.isPaused || this.isBlocked()) return;
     const item = event.target.closest?.('.book-item');
     if (!item || item.classList.contains('correct')) return;
-    const object = this.getLevel()?.objects?.find(({ uid }) => String(uid) === String(item.dataset.uid));
+    const level = this.getLevel();
+    const object = level?.objects?.find(({ uid }) => String(uid) === String(item.dataset.uid));
     if (!object) return;
+    const source = level.containers.find(container => container.id === object.shelfId);
+    if (!source || source.items[source.items.length - 1] !== object.uid) {
+      item.classList.add('shake');
+      setTimeout(() => item.classList.remove('shake'), 250);
+      return;
+    }
     event.preventDefault();
     const rect = item.getBoundingClientRect();
     this.dragItem = object;
@@ -59,7 +67,6 @@ export class DragController {
     if (typeof item.setPointerCapture === 'function' && this.pointerId !== null) {
       try { item.setPointerCapture(this.pointerId); } catch { /* already captured */ }
     }
-    // Fixed positioning makes the book independent from the layout while dragging.
     item.style.position = 'fixed';
     item.style.zIndex = '10000';
     this.root.body?.appendChild(item);
@@ -85,13 +92,12 @@ export class DragController {
     const target = this.findTargetContainer(event.clientX, event.clientY);
     this.clearContainerHighlights();
     const element = this.dragEl;
+    const level = this.getLevel();
 
-    if (target && this.validator.canDrop(this.dragItem, target.container)) {
+    if (target && this.validator.canDrop(this.dragItem, target.container, level)) {
       const item = this.dragItem;
       const containerElement = target.element;
       this.releasePointer();
-      // Restore the element before handing it to Game/GameUI. This prevents the
-      // old fixed-position drag state from surviving the successful drop.
       this.restoreElementToOrigin(element);
       this.clearDragState();
       this.onCorrect(item, element, containerElement);
@@ -102,9 +108,7 @@ export class DragController {
     this.cancelDrag();
   }
 
-  ownsPointer(event) {
-    return this.pointerId === null || event.pointerId === undefined || event.pointerId === this.pointerId;
-  }
+  ownsPointer(event) { return this.pointerId === null || event.pointerId === undefined || event.pointerId === this.pointerId; }
 
   releasePointer() {
     if (this.dragEl && this.pointerId !== null && typeof this.dragEl.releasePointerCapture === 'function') {
@@ -120,9 +124,7 @@ export class DragController {
     element.style.zIndex = '';
     element.style.left = '';
     element.style.top = '';
-    if (this.originalParent && element.parentNode !== this.originalParent) {
-      this.originalParent.insertBefore(element, this.originalNext);
-    }
+    if (this.originalParent && element.parentNode !== this.originalParent) this.originalParent.insertBefore(element, this.originalNext);
   }
 
   cancelDrag() {
@@ -170,12 +172,10 @@ export class DragController {
     if (!level || !this.dragItem) return;
     const target = this.findTargetContainer(clientX, clientY);
     for (const element of this.root.querySelectorAll('.shelf-container')) element.classList.remove('highlight', 'reject');
-    if (target) target.element.classList.add(this.validator.canDrop(this.dragItem, target.container) ? 'highlight' : 'reject');
+    if (target) target.element.classList.add(this.validator.canDrop(this.dragItem, target.container, level) ? 'highlight' : 'reject');
   }
 
-  clearContainerHighlights() {
-    this.root.querySelectorAll('.shelf-container').forEach(element => element.classList.remove('highlight', 'reject'));
-  }
+  clearContainerHighlights() { this.root.querySelectorAll('.shelf-container').forEach(element => element.classList.remove('highlight', 'reject')); }
 
   destroy() {
     this.cancelDrag();
