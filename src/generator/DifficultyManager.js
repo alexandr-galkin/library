@@ -13,12 +13,9 @@ export class DifficultyManager {
       if (!rng || range[0] === range[1]) return range[0];
       return rng.int(range[0], range[1]);
     };
-    return {
-      colors: pickRange(config.colors),
-      shelves: Math.max(pickRange(config.shelves), pickRange(config.colors) + 1),
-      capacity: config.capacity,
-      level,
-    };
+    const colors = pickRange(config.colors);
+    const shelves = Math.max(colors + 1, pickRange(config.shelves));
+    return { colors, shelves, capacity: config.capacity, level };
   }
 
   static getAvailableFields() { return ['color']; }
