@@ -1,9 +1,9 @@
-import { RuleEngine } from '../rules/RuleEngine.js';
+import { DropValidator, pointInRect } from './DropValidator.js';
 
 const DRAG_THRESHOLD = 5;
 
 export class DragController {
-  constructor({ getLevel, isBlocked = () => false, sound = null, onCorrect = () => {}, onWrong = () => {}, root = document } = {}) {
+  constructor({ getLevel, isBlocked = () => false, sound = null, onCorrect = () => {}, onWrong = () => {}, root = document, validator = new DropValidator() } = {}) {
     if (typeof getLevel !== 'function') throw new TypeError('DragController requires getLevel()');
     this.getLevel = getLevel;
     this.isBlocked = isBlocked;
@@ -11,6 +11,7 @@ export class DragController {
     this.onCorrect = onCorrect;
     this.onWrong = onWrong;
     this.root = root;
+    this.validator = validator;
     this.dragItem = null;
     this.dragEl = null;
     this.originalParent = null;
@@ -22,7 +23,6 @@ export class DragController {
     this.isDragging = false;
     this.isPaused = false;
     this.hasMoved = false;
-
     this.onDown = event => this.onPointerDown(event);
     this.onMove = event => this.onPointerMove(event);
     this.onUp = event => this.onPointerUp(event);
@@ -41,7 +41,6 @@ export class DragController {
     if (!item || item.classList.contains('correct')) return;
     const object = this.getLevel()?.objects?.find(({ uid }) => uid === item.dataset.uid);
     if (!object) return;
-
     event.preventDefault();
     const rect = item.getBoundingClientRect();
     this.dragItem = object;
@@ -54,7 +53,6 @@ export class DragController {
     this.startY = event.clientY;
     this.hasMoved = false;
     this.isDragging = true;
-
     item.classList.add('dragging');
     this.root.body?.appendChild(item);
     this.updatePosition(event.clientX, event.clientY);
@@ -75,18 +73,15 @@ export class DragController {
     if (this.isPaused || !this.isDragging || !this.dragEl) return;
     event.preventDefault();
     if (!this.hasMoved) return this.cancelDrag();
-
     const target = this.findTargetContainer(event.clientX, event.clientY);
     this.clearContainerHighlights();
-    const valid = target && target.container.type !== 'forbidden' && RuleEngine.evaluate(this.dragItem, target.container.rule);
-    if (valid) {
+    if (target && this.validator.canDrop(this.dragItem, target.container)) {
       const item = this.dragItem;
       const element = this.dragEl;
       this.clearDragState();
       this.onCorrect(item, element, target.element);
       return;
     }
-
     const element = this.dragEl;
     this.onWrong(element);
     this.cancelDrag();
@@ -98,9 +93,7 @@ export class DragController {
       element.classList.remove('dragging');
       element.style.left = '';
       element.style.top = '';
-      if (this.originalParent && element.parentNode !== this.originalParent) {
-        this.originalParent.insertBefore(element, this.originalNext);
-      }
+      if (this.originalParent && element.parentNode !== this.originalParent) this.originalParent.insertBefore(element, this.originalNext);
     }
     this.clearContainerHighlights();
     this.clearDragState();
@@ -116,10 +109,9 @@ export class DragController {
   }
 
   updatePosition(clientX, clientY) {
-    if (this.dragEl) {
-      this.dragEl.style.left = `${clientX - this.offsetX}px`;
-      this.dragEl.style.top = `${clientY - this.offsetY}px`;
-    }
+    if (!this.dragEl) return;
+    this.dragEl.style.left = `${clientX - this.offsetX}px`;
+    this.dragEl.style.top = `${clientY - this.offsetY}px`;
   }
 
   updateContainerHighlights(clientX, clientY) {
@@ -127,10 +119,9 @@ export class DragController {
     if (!level || !this.dragItem) return;
     for (const element of this.root.querySelectorAll('.shelf-container')) {
       element.classList.remove('highlight', 'reject');
-      if (!this.isPointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
+      if (!pointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
       const container = level.containers.find(({ id }) => id === element.dataset.id);
-      if (!container) continue;
-      element.classList.add(container.type === 'forbidden' || !RuleEngine.evaluate(this.dragItem, container.rule) ? 'reject' : 'highlight');
+      if (container) element.classList.add(this.validator.canDrop(this.dragItem, container) ? 'highlight' : 'reject');
     }
   }
 
@@ -142,14 +133,12 @@ export class DragController {
     const level = this.getLevel();
     if (!level) return null;
     for (const element of this.root.querySelectorAll('.shelf-container')) {
-      if (!this.isPointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
+      if (!pointInRect(clientX, clientY, element.getBoundingClientRect())) continue;
       const container = level.containers.find(({ id }) => id === element.dataset.id);
       if (container) return { container, element };
     }
     return null;
   }
-
-  isPointInRect(x, y, rect) { return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom; }
 
   destroy() {
     this.cancelDrag();
@@ -157,5 +146,9 @@ export class DragController {
     this.root.removeEventListener('pointermove', this.onMove);
     this.root.removeEventListener('pointerup', this.onUp);
     this.root.removeEventListener('pointercancel', this.onUp);
+    this.getLevel = null;
+    this.isBlocked = () => true;
+    this.onCorrect = null;
+    this.onWrong = null;
   }
 }
