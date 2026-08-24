@@ -2,6 +2,7 @@ import { GameState } from './GameState.js';
 import { GameStats } from '../core/GameStats.js';
 import { GameTimer } from '../core/GameTimer.js';
 import { ScoreCalculator } from '../core/ScoreCalculator.js';
+import { LocalStorageRepository } from '../persistence/LocalStorageRepository.js';
 import { ThemeManager } from '../themes/ThemeManager.js';
 import { ProceduralLevelGenerator } from '../generator/ProceduralLevelGenerator.js';
 import { SoundManager } from '../audio/SoundManager.js';
@@ -19,7 +20,8 @@ export class Game {
     this.app = app;
     this.document = documentRef;
     this.window = windowRef;
-    this.state = new GameState(storage);
+    this.storage = storage ?? this.window.localStorage;
+    this.state = new GameState(new LocalStorageRepository(this.storage, 'library-game', ['chaosGame_v2']));
     this.stats = new GameStats();
     this.theme = new ThemeManager().current;
     this.sound = new SoundManager({ windowRef });
@@ -74,7 +76,7 @@ export class Game {
   }
 
   updateSetting(key, value) {
-    if (!(key in this.state.data.settings)) return;
+    if (!(key in this.state.data.settings) || typeof value !== 'boolean') return;
     this.state.data.settings[key] = value;
     this.state.save();
     this.applySettings();
@@ -92,9 +94,7 @@ export class Game {
   }
 
   pauseGame() {
-    if (this.session.pause()) {
-      this.drag?.pause();
-    }
+    if (this.session.pause()) this.drag?.pause();
   }
 
   resumeGame() {
@@ -150,13 +150,8 @@ export class Game {
     this.ui = null;
   }
 
-  retryLevel() {
-    if (!this.session.retry()) return;
-  }
-
-  nextLevel() {
-    if (!this.session.next()) return;
-  }
+  retryLevel() { this.session.retry(); }
+  nextLevel() { this.session.next(); }
 
   handleTimerTick(seconds) {
     this.ui?.updateTimer(seconds, seconds <= 5);
