@@ -22,6 +22,7 @@ export class GameEngine {
     this.drag = null;
     this.history = [];
     this.completionTimeout = null;
+    this.wrongTimeout = null;
     this.session = new GameSession({
       state,
       stats,
@@ -42,7 +43,7 @@ export class GameEngine {
   get levelScore() { return this.stats.levelScore; }
   /** Whether the game is paused. */
   get isPaused() { return this.session.isPaused; }
-  /** Whether a level transition is active. */
+  /** Whether a transition is active. */
   get isTransitioning() { return this.session.transitioning; }
   /** Whether the game session is active. */
   get isActive() { return this.session.active; }
@@ -125,11 +126,14 @@ export class GameEngine {
   /** Animate a rejected drop without changing game state. */
   handleWrong(element) {
     if (!element) return;
+    if (this.wrongTimeout) this.window.clearTimeout(this.wrongTimeout);
     element.classList.remove('shake');
     void element.offsetWidth;
     element.classList.add('shake');
-    const timeout = this.window.setTimeout(() => element.classList.remove('shake'), 400);
-    this.completionTimeout = timeout;
+    this.wrongTimeout = this.window.setTimeout(() => {
+      element.classList.remove('shake');
+      this.wrongTimeout = null;
+    }, 400);
   }
 
   /** Undo the latest move without touching renderer-owned state. */
@@ -180,7 +184,9 @@ export class GameEngine {
   /** Remove all level-specific resources. */
   cleanupLevel() {
     if (this.completionTimeout) this.window.clearTimeout(this.completionTimeout);
+    if (this.wrongTimeout) this.window.clearTimeout(this.wrongTimeout);
     this.completionTimeout = null;
+    this.wrongTimeout = null;
     this.drag?.destroy();
     this.drag = null;
     this.renderer?.destroy();
