@@ -13,8 +13,8 @@ export class LevelFactory {
 
   create(levelNumber, seed) {
     const difficulty = this.difficultyManager.getDifficulty(levelNumber);
-    const config = this.difficultyManager.getPuzzleConfig(difficulty, levelNumber);
     const rng = new SeededRandom(seed);
+    const config = this.difficultyManager.getPuzzleConfig(difficulty, levelNumber, rng);
     const level = SortPuzzleGenerator.generate({
       rng,
       colors: config.colors,
