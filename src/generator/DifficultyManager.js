@@ -4,38 +4,27 @@ const clampDifficulty = level => Math.max(1, Math.floor(Number(level) || 1));
 
 export class DifficultyManager {
   static getDifficulty(level) {
-    return Math.min(LevelConfig.maxDifficulty(), Math.floor((clampDifficulty(level) - 1) / 15) + 1);
+    return Math.min(LevelConfig.maxDifficulty(), Math.floor((clampDifficulty(level) - 1) / 10) + 1);
   }
 
-  static getAvailableFields(difficulty) {
-    return [...LevelConfig.forDifficulty(difficulty).fields];
-  }
-
-  static getMaxContainers(difficulty) {
-    return LevelConfig.forDifficulty(difficulty).maxContainers;
-  }
-
-  static getObjectCount(difficulty, level, rng) {
+  static getPuzzleConfig(difficulty, level, rng = null) {
     const config = LevelConfig.forDifficulty(difficulty);
-    const currentLevel = Math.max(1, Math.floor(Number(level) || 1));
-    if (currentLevel === 1) return config.objects[0];
-    if (!rng || typeof rng.int !== 'function') throw new TypeError('DifficultyManager requires an RNG with int()');
-    return rng.int(config.objects[0], config.objects[1]);
+    const pickRange = (range) => {
+      if (!rng || range[0] === range[1]) return range[0];
+      return rng.int(range[0], range[1]);
+    };
+    return {
+      colors: pickRange(config.colors),
+      shelves: Math.max(pickRange(config.shelves), pickRange(config.colors) + 1),
+      capacity: config.capacity,
+      level,
+    };
   }
 
-  static getModifierChance(difficulty) {
-    return { ...LevelConfig.forDifficulty(difficulty).modifiers };
-  }
-
-  static getTimeLimit(difficulty, objectCount) {
-    const config = LevelConfig.forDifficulty(difficulty);
-    if (!config.timeLimit) return null;
-    const objects = Math.max(0, Math.floor(Number(objectCount) || 0));
-    return Math.max(config.timeLimit.min, config.timeLimit.base + objects * config.timeLimit.perObject - clampDifficulty(difficulty) * config.timeLimit.perDifficulty);
-  }
-
-  static getStarThresholds(difficulty) {
-    const value = clampDifficulty(difficulty);
-    return [0, Math.floor(value / 2) + 1];
-  }
+  static getAvailableFields() { return ['color']; }
+  static getMaxContainers(difficulty) { return LevelConfig.forDifficulty(difficulty).maxContainers; }
+  static getObjectCount(difficulty) { const c = LevelConfig.forDifficulty(difficulty); return c.colors[0] * c.capacity; }
+  static getModifierChance() { return {}; }
+  static getTimeLimit() { return null; }
+  static getStarThresholds(difficulty) { return [0, Math.max(1, Math.floor(clampDifficulty(difficulty) / 2))]; }
 }
