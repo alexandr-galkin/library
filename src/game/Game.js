@@ -16,7 +16,6 @@ import { LevelComplete } from '../ui/LevelComplete.js';
 export class Game {
   constructor({ app = document.getElementById('app'), storage, documentRef = document } = {}) {
     if (!app) throw new Error('Game requires an #app element');
-
     this.app = app;
     this.document = documentRef;
     this.state = new GameState(storage);
@@ -25,11 +24,7 @@ export class Game {
     this.theme = this.themeManager.current;
     this.sound = new SoundManager();
     this.particles = new ParticleSystem();
-    this.timer = new GameTimer({
-      onTick: seconds => this.handleTimerTick(seconds),
-      onComplete: () => this.handleFail(),
-    });
-
+    this.timer = new GameTimer({ onTick: seconds => this.handleTimerTick(seconds), onComplete: () => this.handleFail() });
     this.drag = null;
     this.ui = null;
     this.currentLevel = null;
@@ -40,30 +35,17 @@ export class Game {
     this.completionTimeout = null;
     this.visibilityHandler = () => this.handleVisibilityChange();
 
-    this.menu = new Menu({
-      getState: () => this.state.data,
-      onPlay: () => this.startGame(),
-      onSettings: () => this.showSettings(),
-    });
-
+    this.menu = new Menu({ getState: () => this.state.data, onPlay: () => this.startGame(), onSettings: () => this.showSettings() });
     this.settings = new Settings({
       getState: () => this.state.data,
       sound: this.sound,
       onSettingChanged: (key, value) => this.updateSetting(key, value),
       onBack: fromGame => {
-        if (fromGame) {
-          this.settings.fromGame = false;
-          this.settings.hide();
-          this.resumeGame();
-        } else {
-          this.showMenu();
-        }
+        if (fromGame) { this.settings.fromGame = false; this.settings.hide(); this.resumeGame(); }
+        else this.showMenu();
       },
     });
-
-    this.levelComplete = new LevelComplete({
-      onNextLevel: () => this.nextLevel(),
-    });
+    this.levelComplete = new LevelComplete({ onNextLevel: () => this.nextLevel() });
 
     this.theme.injectStyles();
     this.app.append(this.menu.container, this.settings.container);
@@ -91,10 +73,7 @@ export class Game {
     this.state.data.settings[key] = value;
     this.state.save();
     this.applySettings();
-    if (key === 'sound' && value) {
-      this.sound.init();
-      this.sound.playPick();
-    }
+    if (key === 'sound' && value) { this.sound.init(); this.sound.playPick(); }
   }
 
   handleVisibilityChange() {
@@ -139,7 +118,17 @@ export class Game {
       this.currentLevel = ProceduralLevelGenerator.generate(levelNumber, this.theme);
       this.stats.resetLevel();
       this.status = GameStatus.PLAYING;
-      this.ui = new GameUI(this);
+      this.ui = new GameUI({
+        app: this.app,
+        theme: this.theme,
+        actions: {
+          onPause: () => this.pauseGame(),
+          onRetry: () => this.retryLevel(),
+          onResume: () => this.resumeGame(),
+          onSettings: () => this.showSettingsFromGame(),
+          onMenu: () => this.showMenu(),
+        },
+      });
       this.drag = new DragController({
         getLevel: () => this.currentLevel,
         isBlocked: () => this.isTransitioning || this.isPaused,
@@ -148,18 +137,12 @@ export class Game {
         onCorrect: (object, element, container) => this.handleCorrect(object, element, container),
         onWrong: element => this.handleWrong(element),
       });
-
       this.ui.updateHUD(this.currentLevel.id, this.currentLevel.difficulty, this.score);
       this.ui.setRule(this.currentLevel.ruleText, this.theme.displayName);
-      this.ui.renderObjects(this.currentLevel.objects, this.theme);
+      this.ui.renderObjects(this.currentLevel.objects);
       this.ui.renderContainers(this.currentLevel.containers);
-
-      if (this.currentLevel.timeLimit) {
-        this.ui.showTimer(this.currentLevel.timeLimit);
-        this.startTimer(this.currentLevel.timeLimit);
-      } else {
-        this.ui.hideTimer();
-      }
+      if (this.currentLevel.timeLimit) { this.ui.showTimer(this.currentLevel.timeLimit); this.startTimer(this.currentLevel.timeLimit); }
+      else this.ui.hideTimer();
     } catch (error) {
       console.error('Failed to load level:', error);
       this.handleLevelLoadError();
@@ -169,7 +152,6 @@ export class Game {
   handleLevelLoadError() {
     try {
       this.cleanupLevel();
-      this.currentLevel = ProceduralLevelGenerator.generate(1, this.theme);
       this.loadLevel(1);
     } catch (error) {
       console.error('Critical error loading fallback level:', error);
@@ -213,20 +195,17 @@ export class Game {
 
   handleCorrect(object, element, containerElement) {
     if (this.isTransitioning || this.isPaused || element.classList.contains('correct')) return;
-
     const points = ScoreCalculator.pointsForCombo(this.stats.combo + 1);
     this.stats.addCorrect(points);
     this.ui.updateHUD(this.currentLevel.id, this.currentLevel.difficulty, this.score);
     this.ui.moveToContainer(element, containerElement);
     element.classList.add('correct');
-
     const rect = containerElement.getBoundingClientRect();
     this.particles.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, '#c9a227', 14);
     this.ui.showPopup(rect.left + rect.width / 2, rect.top, `+${points}`);
     if (this.combo >= 2) this.ui.showCombo(this.combo);
     if (this.combo >= 3) this.sound.playCombo(); else this.sound.playCorrect();
     setTimeout(() => element.remove(), 500);
-
     if (this.placed >= this.currentLevel.objects.length) {
       this.isTransitioning = true;
       this.status = GameStatus.COMPLETING;
@@ -250,7 +229,6 @@ export class Game {
     const accuracyBonus = ScoreCalculator.accuracyBonus(this.stats.accuracy(this.currentLevel.objects.length));
     this.stats.addBonus(timeBonus + accuracyBonus);
     const stars = this.stats.stars();
-
     this.state.data.totalScore = this.score;
     this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score);
     this.state.save();
