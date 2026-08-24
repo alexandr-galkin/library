@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 const STYLE_ID = 'library-level-complete-theme';
 
 export class LevelComplete {
@@ -38,10 +40,7 @@ export class LevelComplete {
       const button = event.target.closest?.('#btn-next-level');
       if (!button || !this.overlay.contains(button)) return;
       this.hide();
-      this.nextTimeout = setTimeout(() => {
-        this.nextTimeout = null;
-        this.onNextLevel?.();
-      }, 300);
+      this.nextTimeout = setTimeout(() => { this.nextTimeout = null; this.onNextLevel?.(); }, 300);
     });
     document.body.appendChild(this.overlay);
   }
@@ -52,18 +51,18 @@ export class LevelComplete {
       <div class="modal-card level-complete-card">
         <div class="complete-header">
           <div class="complete-icon" aria-hidden="true">✦</div>
-          <div class="complete-kicker">LIBRARY • LEVEL COMPLETE</div>
-          <div class="complete-title">КНИГИ РАЗЛОЖЕНЫ</div>
-          <div class="complete-level">Уровень ${level} пройден</div>
+          <div class="complete-kicker">${t('complete.kicker')}</div>
+          <div class="complete-title">${t('complete.title')}</div>
+          <div class="complete-level">${t('complete.levelComplete', { level })}</div>
         </div>
-        <div class="stars-container" aria-label="Три звезды">${this.generateStars(3)}</div>
+        <div class="stars-container" aria-label="${t('complete.stars')}">${this.generateStars(3)}</div>
         <div class="score-breakdown">
-          <div class="score-row"><span><b>01</b> Базовые очки</span><strong>${baseScore}</strong></div>
-          <div class="score-row"><span><b>02</b> Бонус времени</span><strong>+${timeBonus}</strong></div>
-          <div class="score-total"><span>ИТОГО</span><strong>${score}</strong></div>
+          <div class="score-row"><span><b>01</b> ${t('complete.baseScore')}</span><strong>${baseScore}</strong></div>
+          <div class="score-row"><span><b>02</b> ${t('complete.timeBonus')}</span><strong>+${timeBonus}</strong></div>
+          <div class="score-total"><span>${t('complete.total')}</span><strong>${score}</strong></div>
         </div>
         <button id="btn-next-level" type="button" class="menu-btn menu-btn-primary">
-          <span>СЛЕДУЮЩИЙ УРОВЕНЬ</span><span aria-hidden="true">→</span>
+          <span>${t('complete.next')}</span><span aria-hidden="true">→</span>
         </button>
       </div>
     `;
@@ -72,22 +71,14 @@ export class LevelComplete {
   }
 
   generateStars(count) {
-    return Array.from({ length: 3 }, (_, index) =>
-      `<div class="complete-star ${index < count ? 'filled' : ''}">${index < count ? '✦' : '◇'}</div>`
-    ).join('');
+    return Array.from({ length: 3 }, (_, index) => `<div class="complete-star ${index < count ? 'filled' : ''}">${index < count ? '✦' : '◇'}</div>`).join('');
   }
 
-  hide() {
-    this.overlay.hidden = true;
-    this.overlay.style.display = 'none';
-  }
+  hide() { this.overlay.hidden = true; this.overlay.style.display = 'none'; }
 
   destroy() {
     if (this.nextTimeout) clearTimeout(this.nextTimeout);
-    this.nextTimeout = null;
-    this.overlay.remove();
-    this.onNextLevel = null;
-    if (this.style?.parentNode) this.style.remove();
-    this.style = null;
+    this.nextTimeout = null; this.overlay.remove(); this.onNextLevel = null;
+    if (this.style?.parentNode) this.style.remove(); this.style = null;
   }
 }
