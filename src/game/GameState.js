@@ -4,15 +4,11 @@ const DEFAULT_STATE = Object.freeze({
   currentLevel: 1,
   bestScore: 0,
   totalScore: 0,
-  settings: Object.freeze({
-    sound: true,
-    anim: true,
-    reduced: false,
-  }),
+  settings: Object.freeze({ sound: true, anim: true, reduced: false }),
 });
 
 export class GameState {
-  constructor(repository = new LocalStorageRepository()) {
+  constructor(repository = new LocalStorageRepository(globalThis.localStorage, 'library-game', ['chaosGame_v2'])) {
     this.repository = repository;
     this.data = this.load();
   }
@@ -22,10 +18,7 @@ export class GameState {
   }
 
   validateAndMerge(saved) {
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
-      return this.defaults();
-    }
-
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return this.defaults();
     const defaults = this.defaults();
 
     return {
@@ -38,17 +31,12 @@ export class GameState {
 
   validateNumber(value, defaultValue, min, max) {
     const number = Number(value);
-    if (!Number.isFinite(number) || number < min || number > max) {
-      return defaultValue;
-    }
+    if (!Number.isFinite(number) || number < min || number > max) return defaultValue;
     return Math.floor(number);
   }
 
   validateSettings(saved, defaults) {
-    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) {
-      return { ...defaults };
-    }
-
+    if (!saved || typeof saved !== 'object' || Array.isArray(saved)) return { ...defaults };
     return {
       sound: typeof saved.sound === 'boolean' ? saved.sound : defaults.sound,
       anim: typeof saved.anim === 'boolean' ? saved.anim : defaults.anim,
@@ -79,10 +67,7 @@ export class GameState {
   }
 
   updateSettings(settings) {
-    this.data.settings = {
-      ...this.data.settings,
-      ...settings,
-    };
+    this.data.settings = { ...this.data.settings, ...settings };
     this.save();
   }
 
