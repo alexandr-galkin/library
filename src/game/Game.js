@@ -12,7 +12,7 @@ import { Menu } from '../ui/Menu.js';
 import { Settings } from '../ui/Settings.js';
 import { LevelComplete } from '../ui/LevelComplete.js';
 import { onLocaleChanged } from '../i18n/index.js';
-import { showFullscreenAd } from '../platform/YandexSDK.js';
+import { initYandexSDK, markGameReady, loadCloudSave, saveCloud, showFullscreenAd } from '../platform/YandexSDK.js';
 
 export class Game {
   constructor({ app = document.getElementById('app'), storage, documentRef = document, windowRef = globalThis } = {}) {
@@ -22,37 +22,36 @@ export class Game {
     this.themeManager = new ThemeManager({ documentRef }); this.theme = this.themeManager.current; this.sound = new SoundManager({ windowRef }); this.particles = new ParticleSystem({ documentRef, windowRef }); this.timer = new GameTimer({ onTick: () => {}, onComplete: () => {} });
     this.levelManager = new LevelManager({ theme: this.theme }); this.layoutManager = new LayoutManager({ documentRef }); this.layoutCleanup = this.layoutManager.install(); this.themeCleanup = this.theme.install();
     this.engine = new GameEngine({ app: this.app, documentRef: this.document, windowRef: this.window, state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, particles: this.particles, levelManager: this.levelManager, theme: this.theme, layoutManager: this.layoutManager, actions: { onSettings: () => this.showSettingsFromGame(), onMenu: () => this.showMenu(), onLevelComplete: (level, score, bonus) => this.showLevelComplete(level, score, bonus) } });
-    this.visibilityHandler = () => this.handleVisibilityChange();
-    this.yandexPauseHandler = () => this.sound.pauseAudio();
-    this.yandexResumeHandler = () => this.sound.resumeAudio();
+    this.visibilityHandler = () => this.handleVisibilityChange(); this.yandexPauseHandler = () => this.sound.pauseAudio(); this.yandexResumeHandler = () => this.sound.resumeAudio();
     this.menu = new Menu({ getState: () => this.state.data, onPlay: () => this.startGame(), onSettings: () => this.showSettings() });
     this.settings = new Settings({ getState: () => this.state.data, sound: this.sound, onSettingChanged: (key, value) => this.updateSetting(key, value), onBack: fromGame => fromGame ? this.closeGameSettings() : this.showMenu() });
     this.levelComplete = new LevelComplete({ onNextLevel: () => this.nextLevel() });
     this.app.append(this.menu.container); this.document.body?.append(this.settings.container); this.menu.show(); this.settings.hide(); this.applySettings();
-    this.localeCleanup = onLocaleChanged(() => this.refreshLocale());
-    this.document.addEventListener('visibilitychange', this.visibilityHandler);
-    this.window.addEventListener('yandex-game-pause', this.yandexPauseHandler);
-    this.window.addEventListener('yandex-game-resume', this.yandexResumeHandler);
+    this.localeCleanup = onLocaleChanged(() => this.refreshLocale()); this.document.addEventListener('visibilitychange', this.visibilityHandler); this.window.addEventListener('yandex-game-pause', this.yandexPauseHandler); this.window.addEventListener('yandex-game-resume', this.yandexResumeHandler);
+    this.platformReady = this.initPlatform();
   }
   get score() { return this.stats.totalScore; } get levelScore() { return this.stats.levelScore; } get currentLevel() { return this.engine.level?.id ?? 0; } get isPaused() { return this.engine.isPaused; } get isTransitioning() { return this.engine.isTransitioning; } get isInGame() { return this.engine.isActive; }
   applySettings() { const settings = this.state.data.settings; this.sound.enabled = settings.sound; this.document.body.classList.toggle('reduced-motion', settings.reduced); }
-  updateSetting(key, value) { if (!(key in this.state.data.settings) || typeof value !== 'boolean') return; this.state.data.settings[key] = value; this.state.save(); this.applySettings(); if (key === 'sound' && value) { this.sound.init(); this.sound.playPick(); } }
-  setTheme(name) { const next = this.themeManager.getTheme(name); if (!next || next === this.theme) return false; this.themeCleanup?.(); this.theme = next; this.themeCleanup = this.theme.install(); this.themeManager.setTheme(name); this.engine.theme = this.theme; this.levelManager.theme = this.theme; if (this.engine.level) this.engine.mountLevel(this.engine.level); return true; }
-  handleVisibilityChange() { if (this.document.hidden && this.engine.isActive && !this.engine.isTransitioning && !this.engine.isPaused) { this.pauseGame(); this.engine.renderer?.showPauseMenu(); } }
+  updateSetting(key, value) { if (!(key in this.state.data.settings) || typeof value !== 'boolean') return; this.state.data.settings[key] = value; this.state.save(); void this.syncCloud(false); this.applySettings(); if (key === 'sound' && value) { this.sound.init(); this.sound.playPick(); } }
+  async initPlatform() {
+    await initYandexSDK();
+    const cloud = await loadCloudSave();
+    if (cloud) {
+      const local = this.state.data; const merged = this.state.validate(cloud);
+      if (merged.currentLevel >= local.currentLevel || merged.totalScore >= local.totalScore || merged.bestScore >= local.bestScore) { this.state.data = merged; this.applySettings(); this.menu.render(); }
+    }
+    await markGameReady();
+  }
+  async syncCloud(flush = true) { await this.platformReady; return saveCloud(this.state.data, flush); }
+  handleVisibilityChange() { if (this.document.hidden && this.engine.isActive && !this.engine.isTransitioning && !this.engine.isPaused) { void this.syncCloud(false); this.pauseGame(); this.engine.renderer?.showPauseMenu(); } }
   pauseGame() { return this.engine.pause(); } resumeGame() { return this.engine.resume(); }
   startGame() { if (this.engine.isTransitioning) return; this.sound.init(); this.menu.hide(); this.settings.hide(); try { this.engine.start(); } catch (error) { console.error('Failed to start game:', error); this.showMenu(); } }
   retryLevel() { return this.engine.retry(); } nextLevel() { return this.engine.next(); }
-  async showLevelComplete(level, score, bonus) { this.menu.render(); this.levelComplete.show(level, score, bonus); await showFullscreenAd(); }
-  showMenu() { this.engine.session.stop(); this.engine.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
+  async showLevelComplete(level, score, bonus) { await this.syncCloud(true); this.menu.render(); this.levelComplete.show(level, score, bonus); await showFullscreenAd(); }
+  showMenu() { void this.syncCloud(true); this.engine.session.stop(); this.engine.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
   showSettings() { this.menu.hide(); this.settings.fromGame = false; this.settings.render(); this.settings.show(); }
   showSettingsFromGame() { this.pauseGame(); this.settings.fromGame = true; this.settings.render(); this.settings.show(); }
   closeGameSettings() { this.settings.fromGame = false; this.settings.hide(); this.resumeGame(); }
-  refreshLocale() {
-    const settingsVisible = this.settings.container.style.display !== 'none';
-    const menuVisible = this.menu.container.style.display !== 'none';
-    if (this.engine.isActive && this.engine.level) this.engine.mountLevel(this.engine.level);
-    if (menuVisible) this.menu.render();
-    if (settingsVisible) { this.settings.render(); this.settings.show(); }
-  }
-  destroy() { this.localeCleanup?.(); this.engine.destroy(); this.layoutCleanup?.(); this.themeCleanup?.(); this.document.removeEventListener('visibilitychange', this.visibilityHandler); this.window.removeEventListener('yandex-game-pause', this.yandexPauseHandler); this.window.removeEventListener('yandex-game-resume', this.yandexResumeHandler); this.timer.destroy(); this.particles.destroy(); this.sound.destroy(); this.menu.destroy(); this.settings.destroy(); this.levelComplete.destroy(); }
+  refreshLocale() { const settingsVisible = this.settings.container.style.display !== 'none'; const menuVisible = this.menu.container.style.display !== 'none'; if (this.engine.isActive && this.engine.level) this.engine.mountLevel(this.engine.level); if (menuVisible) this.menu.render(); if (settingsVisible) { this.settings.render(); this.settings.show(); } }
+  destroy() { void this.syncCloud(true); this.localeCleanup?.(); this.engine.destroy(); this.layoutCleanup?.(); this.themeCleanup?.(); this.document.removeEventListener('visibilitychange', this.visibilityHandler); this.window.removeEventListener('yandex-game-pause', this.yandexPauseHandler); this.window.removeEventListener('yandex-game-resume', this.yandexResumeHandler); this.timer.destroy(); this.particles.destroy(); this.sound.destroy(); this.menu.destroy(); this.settings.destroy(); this.levelComplete.destroy(); }
 }
