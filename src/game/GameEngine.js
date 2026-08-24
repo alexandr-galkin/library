@@ -5,8 +5,8 @@ import { DragController } from '../ui/DragController.js';
 
 /** Coordinates state, levels, renderer and input without owning application UI. */
 export class GameEngine {
-  constructor({ app, documentRef = document, windowRef = globalThis, state, stats, timer, sound, particles, levelManager, theme, actions = {} } = {}) {
-    if (!app || !state || !stats || !timer || !sound || !levelManager || !theme) throw new TypeError('GameEngine requires app, state, stats, timer, sound, levelManager and theme');
+  constructor({ app, documentRef = document, windowRef = globalThis, state, stats, timer, sound, particles, levelManager, theme, layoutManager, actions = {} } = {}) {
+    if (!app || !state || !stats || !timer || !sound || !levelManager || !theme || !layoutManager) throw new TypeError('GameEngine requires app, state, stats, timer, sound, levelManager, theme and layoutManager');
     this.app = app;
     this.document = documentRef;
     this.window = windowRef;
@@ -17,22 +17,14 @@ export class GameEngine {
     this.particles = particles;
     this.levelManager = levelManager;
     this.theme = theme;
+    this.layoutManager = layoutManager;
     this.actions = actions;
     this.renderer = null;
     this.drag = null;
     this.history = [];
     this.completionTimeout = null;
     this.wrongTimeout = null;
-    this.session = new GameSession({
-      state,
-      stats,
-      timer,
-      sound,
-      generateLevel: level => this.levelManager.generate(level),
-      onLevelLoaded: level => this.mountLevel(level),
-      onComplete: level => this.finishLevel(level),
-      onFail: () => this.renderer?.showFail(),
-    });
+    this.session = new GameSession({ state, stats, timer, sound, generateLevel: level => this.levelManager.generate(level), onLevelLoaded: level => this.mountLevel(level), onComplete: level => this.finishLevel(level), onFail: () => this.renderer?.showFail() });
   }
 
   /** Current level model. */
@@ -65,27 +57,13 @@ export class GameEngine {
   mountLevel(level) {
     this.cleanupLevel();
     this.history = [];
-    this.renderer = new GameRenderer({
-      app: this.app,
-      theme: this.theme,
-      documentRef: this.document,
-      actions: {
-        onPause: () => { this.pause(); this.renderer?.showPauseMenu(); },
-        onUndo: () => this.undoMove(),
-        onRetry: () => this.retry(),
-        onResume: () => this.resume(),
-        onSettings: () => this.actions.onSettings?.(),
-        onMenu: () => this.actions.onMenu?.(),
-      },
-    });
-    this.drag = new DragController({
-      getLevel: () => this.level,
-      isBlocked: () => this.isTransitioning || this.isPaused || !this.isPlaying,
-      sound: this.sound,
-      root: this.document,
-      onDrop: (object, container, element) => this.handleDrop(object, container, element),
-      onWrong: element => this.handleWrong(element),
-    });
+    this.layoutManager.updateShelfCount(level.containers.length);
+    this.renderer = new GameRenderer({ app: this.app, theme: this.theme, documentRef: this.document, actions: {
+      onPause: () => { this.pause(); this.renderer?.showPauseMenu(); },
+      onUndo: () => this.undoMove(), onRetry: () => this.retry(), onResume: () => this.resume(),
+      onSettings: () => this.actions.onSettings?.(), onMenu: () => this.actions.onMenu?.(),
+    } });
+    this.drag = new DragController({ getLevel: () => this.level, isBlocked: () => this.isTransitioning || this.isPaused || !this.isPlaying, sound: this.sound, root: this.document, onDrop: (object, container, element) => this.handleDrop(object, container, element), onWrong: element => this.handleWrong(element) });
     this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves);
     this.renderer.setRule(level.ruleText, this.theme.displayName);
     this.renderer.renderContainers(level.containers, level.objects);
@@ -101,25 +79,19 @@ export class GameEngine {
     target.items.unshift(object.uid);
     object.shelfId = target.id;
     object.depth = 0;
-
     const points = Math.max(1, 100 - level.moves * 2);
-    const move = { sourceId: source.id, targetId: target.id, objectId: object.uid, points };
-    this.history.push(move);
+    this.history.push({ sourceId: source.id, targetId: target.id, objectId: object.uid, points });
     level.moves += 1;
     this.stats.addCorrect(points);
     this.renderer.renderContainers(level.containers, level.objects);
     this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves);
-
     const rect = targetElement?.getBoundingClientRect();
     if (rect) {
       this.particles?.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, '#c9a227', 8);
       this.renderer.showPopup(rect.left + rect.width / 2, rect.top, `ХОД ${level.moves}`);
     }
     this.sound.playCorrect();
-
-    if (this.isSolved(level) && this.session.markCompleting()) {
-      this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 500);
-    }
+    if (this.isSolved(level) && this.session.markCompleting()) this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 500);
     return true;
   }
 
@@ -130,10 +102,7 @@ export class GameEngine {
     element.classList.remove('shake');
     void element.offsetWidth;
     element.classList.add('shake');
-    this.wrongTimeout = this.window.setTimeout(() => {
-      element.classList.remove('shake');
-      this.wrongTimeout = null;
-    }, 400);
+    this.wrongTimeout = this.window.setTimeout(() => { element.classList.remove('shake'); this.wrongTimeout = null; }, 400);
   }
 
   /** Undo the latest move without touching renderer-owned state. */
