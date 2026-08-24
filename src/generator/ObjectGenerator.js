@@ -1,65 +1,40 @@
-import { SeededRandom } from './SeededRandom.js';
+import { RuleEngine } from '../rules/RuleEngine.js';
 
 export class ObjectGenerator {
-  static generate(rng, count, theme, containers, difficulty) {
+  static generate(rng, count, theme, containers) {
     const props = theme.getAllBookProperties();
     const objects = [];
-    const normalContainers = containers.filter(c => c.type !== 'forbidden');
-    
+    const normalContainers = containers.filter(container => container.type !== 'forbidden');
     let attempts = 0;
     const maxAttempts = 2000;
-    
+
     while (objects.length < count && attempts < maxAttempts) {
-      attempts++;
-      
-      const obj = this.createRandomBook(rng, props, objects);
-      
-      // Check if object fits at least one container
-      const fits = normalContainers.some(c => 
-        this.evaluateBook(obj, c.rule)
-      );
-      
-      if (fits) {
-        objects.push(obj);
+      attempts += 1;
+      const object = this.createRandomBook(rng, props, objects.length);
+      if (normalContainers.some(container => RuleEngine.evaluate(object, container.rule))) {
+        objects.push(object);
       }
     }
 
-    // Fallback: generate books that definitely fit main container
-    if (objects.length < count) {
-      const mainRule = containers[0]?.rule;
-      
-      while (objects.length < count && attempts < maxAttempts * 2) {
-        attempts++;
-        
-        const obj = this.createRandomBook(rng, props, objects);
-        
-        if (mainRule && this.evaluateBook(obj, mainRule)) {
-          objects.push(obj);
-        } else if (!mainRule) {
-          objects.push(obj);
-        }
-      }
+    const mainRule = containers[0]?.rule;
+    while (objects.length < count && attempts < maxAttempts * 2) {
+      attempts += 1;
+      const object = this.createRandomBook(rng, props, objects.length);
+      if (!mainRule || RuleEngine.evaluate(object, mainRule)) objects.push(object);
     }
 
-    // Ensure minimum objects
-    if (objects.length < 2) {
-      // Create simple valid objects
-      const mainRule = containers[0]?.rule;
-      
-      while (objects.length < 2) {
-        const obj = this.createBookFromRule(mainRule, props);
-        if (obj) {
-          objects.push(obj);
-        }
-      }
+    while (objects.length < Math.min(2, count)) {
+      const object = this.createBookFromRule(mainRule, props, objects.length);
+      if (object) objects.push(object);
+      else objects.push(this.createRandomBook(rng, props, objects.length));
     }
 
     return rng.shuffle(objects);
   }
 
-  static createRandomBook(rng, props, existing) {
+  static createRandomBook(rng, props, index) {
     return {
-      uid: `book_${existing.length}_${Date.now()}_${rng.int(0, 9999)}`,
+      uid: `book_${index}`,
       type: 'book',
       color: rng.pick(props.colors),
       size: rng.pick(props.sizes),
@@ -69,60 +44,32 @@ export class ObjectGenerator {
     };
   }
 
-  static createBookFromRule(rule, props) {
-    if (!rule) {
-      return {
-        uid: `book_${Date.now()}_${Math.random()}`,
-        type: 'book',
-        color: props.colors[0],
-        size: props.sizes[0],
-        genre: props.genres[0],
-        symbol: props.symbols[0],
-        thickness: props.thicknesses[0],
-      };
-    }
-    
-    // Handle simple equality rule
-    if (rule.type === 'eq' || (rule.field && rule.value)) {
-      return {
-        uid: `book_${Date.now()}_${Math.random()}`,
-        type: 'book',
-        color: rule.field === 'color' ? rule.value : props.colors[0],
-        size: rule.field === 'size' ? rule.value : props.sizes[0],
-        genre: rule.field === 'genre' ? rule.value : props.genres[0],
-        symbol: rule.field === 'symbol' ? rule.value : props.symbols[0],
-        thickness: rule.field === 'thickness' ? rule.value : props.thicknesses[0],
-      };
-    }
-    
-    return null;
-  }
+  static createBookFromRule(rule, props, index) {
+    const base = {
+      uid: `book_${index}`,
+      type: 'book',
+      color: props.colors[0],
+      size: props.sizes[0],
+      genre: props.genres[0],
+      symbol: props.symbols[0],
+      thickness: props.thicknesses[0],
+    };
 
-  static evaluateBook(book, rule) {
-    if (!rule) return true;
-    
+    if (!rule) return base;
+
+    if (rule.field && rule.value !== undefined && Object.hasOwn(base, rule.field)) {
+      return { ...base, [rule.field]: rule.value };
+    }
+
     if (rule.type === 'and') {
-      return rule.rules.every(r => this.evaluateBook(book, r));
+      return rule.rules.reduce((book, child) => {
+        if (child.field && child.value !== undefined && Object.hasOwn(book, child.field)) {
+          return { ...book, [child.field]: child.value };
+        }
+        return book;
+      }, base);
     }
-    
-    if (rule.type === 'or') {
-      return rule.rules.some(r => this.evaluateBook(book, r));
-    }
-    
-    if (rule.type === 'not') {
-      return !this.evaluateBook(book, rule.rule);
-    }
-    
-    const val = book[rule.field];
-    
-    switch (rule.op) {
-      case 'eq': return val === rule.value;
-      case 'ne': return val !== rule.value;
-      case 'gt': return val > rule.value;
-      case 'lt': return val < rule.value;
-      case 'in': return rule.values.includes(val);
-      case 'nin': return !rule.values.includes(val);
-      default: return false;
-    }
+
+    return RuleEngine.evaluate(base, rule) ? base : null;
   }
 }
