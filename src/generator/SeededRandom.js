@@ -1,75 +1,78 @@
+const UINT32_SCALE = 2 ** 32;
+const DEFAULT_SEED = 12345;
+
 export class SeededRandom {
-  constructor(seed) {
-    this.seed = this.normalizeSeed(seed);
+  constructor(seed = DEFAULT_SEED) {
+    this.seed = SeededRandom.normalizeSeed(seed);
     this.state = this.seed;
   }
 
-  normalizeSeed(seed) {
+  static normalizeSeed(seed) {
     if (typeof seed === 'string') {
-      let hash = 0;
-      for (let i = 0; i < seed.length; i++) {
-        const char = seed.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
+      let hash = 2166136261;
+      for (let index = 0; index < seed.length; index += 1) {
+        hash ^= seed.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
       }
-      return Math.abs(hash) || 12345;
+      return hash >>> 0 || DEFAULT_SEED;
     }
-    
-    return Math.abs(Math.floor(seed)) || 12345;
+    const value = Math.floor(Number(seed));
+    return Number.isFinite(value) ? (value >>> 0) || DEFAULT_SEED : DEFAULT_SEED;
   }
 
   next() {
-    // Using xorshift for better randomness
     let x = this.state;
     x ^= x << 13;
-    x ^= x >> 17;
+    x ^= x >>> 17;
     x ^= x << 5;
     this.state = x >>> 0;
-    return this.state / 4294967296;
+    return this.state / UINT32_SCALE;
   }
 
   range(min, max) {
-    return min + this.next() * (max - min);
+    const low = Number(min);
+    const high = Number(max);
+    if (!Number.isFinite(low) || !Number.isFinite(high)) throw new TypeError('range() requires finite bounds');
+    if (high < low) throw new RangeError('range() max must be >= min');
+    return low + this.next() * (high - low);
   }
 
   int(min, max) {
-    return Math.floor(this.range(min, max + 1));
+    const low = Math.ceil(Number(min));
+    const high = Math.floor(Number(max));
+    if (!Number.isFinite(low) || !Number.isFinite(high) || high < low) throw new RangeError('int() requires valid bounds');
+    return Math.floor(low + this.next() * (high - low + 1));
   }
 
-  pick(arr) {
-    if (!arr || arr.length === 0) {
-      return undefined;
+  pick(items) {
+    if (!Array.isArray(items) || items.length === 0) return undefined;
+    return items[this.int(0, items.length - 1)];
+  }
+
+  shuffle(items) {
+    if (!Array.isArray(items)) return [];
+    const result = [...items];
+    for (let index = result.length - 1; index > 0; index -= 1) {
+      const other = this.int(0, index);
+      [result[index], result[other]] = [result[other], result[index]];
     }
-    return arr[this.int(0, arr.length - 1)];
+    return result;
   }
 
-  shuffle(arr) {
-    const a = [...arr];
-    
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = this.int(0, i);
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    
-    return a;
+  chance(probability) {
+    const value = Number(probability);
+    if (!Number.isFinite(value) || value <= 0) return false;
+    if (value >= 1) return true;
+    return this.next() < value;
   }
 
-  chance(p) {
-    return this.next() < p;
-  }
-
-  // Generate multiple values
   generate(count, generator) {
-    const results = [];
-    for (let i = 0; i < count; i++) {
-      results.push(generator(this));
-    }
-    return results;
+    if (!Number.isInteger(count) || count < 0) throw new RangeError('generate() count must be a non-negative integer');
+    if (typeof generator !== 'function') throw new TypeError('generate() requires a generator function');
+    return Array.from({ length: count }, () => generator(this));
   }
 }
 
 export function generateSeed(level) {
-  // Use a more complex seed generation
-  const base = ((level * 9301 + 49297) % 233280) + 12345;
-  return base + (level << 8);
+  return SeededRandom.normalizeSeed(`library:${Math.max(1, Math.floor(Number(level) || 1))}`);
 }
