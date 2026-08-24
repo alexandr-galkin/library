@@ -57,8 +57,11 @@ export class DragController {
     this.isDragging = true;
     item.classList.add('dragging');
     if (typeof item.setPointerCapture === 'function' && this.pointerId !== null) {
-      try { item.setPointerCapture(this.pointerId); } catch { /* pointer may already be captured */ }
+      try { item.setPointerCapture(this.pointerId); } catch { /* already captured */ }
     }
+    // Fixed positioning makes the book independent from the layout while dragging.
+    item.style.position = 'fixed';
+    item.style.zIndex = '10000';
     this.root.body?.appendChild(item);
     this.updatePosition(event.clientX, event.clientY);
     this.sound?.playPick();
@@ -78,18 +81,23 @@ export class DragController {
     if (this.isPaused || !this.isDragging || !this.dragEl || !this.ownsPointer(event)) return;
     event.preventDefault();
     if (!this.hasMoved) return this.cancelDrag();
+
     const target = this.findTargetContainer(event.clientX, event.clientY);
     this.clearContainerHighlights();
+    const element = this.dragEl;
+
     if (target && this.validator.canDrop(this.dragItem, target.container)) {
       const item = this.dragItem;
-      const element = this.dragEl;
       const containerElement = target.element;
       this.releasePointer();
+      // Restore the element before handing it to Game/GameUI. This prevents the
+      // old fixed-position drag state from surviving the successful drop.
+      this.restoreElementToOrigin(element);
       this.clearDragState();
       this.onCorrect(item, element, containerElement);
       return;
     }
-    const element = this.dragEl;
+
     this.onWrong(element);
     this.cancelDrag();
   }
@@ -100,20 +108,27 @@ export class DragController {
 
   releasePointer() {
     if (this.dragEl && this.pointerId !== null && typeof this.dragEl.releasePointerCapture === 'function') {
-      try { this.dragEl.releasePointerCapture(this.pointerId); } catch { /* pointer may already be released */ }
+      try { this.dragEl.releasePointerCapture(this.pointerId); } catch { /* already released */ }
     }
     this.pointerId = null;
+  }
+
+  restoreElementToOrigin(element) {
+    if (!element) return;
+    element.classList.remove('dragging');
+    element.style.position = '';
+    element.style.zIndex = '';
+    element.style.left = '';
+    element.style.top = '';
+    if (this.originalParent && element.parentNode !== this.originalParent) {
+      this.originalParent.insertBefore(element, this.originalNext);
+    }
   }
 
   cancelDrag() {
     const element = this.dragEl;
     this.releasePointer();
-    if (element) {
-      element.classList.remove('dragging');
-      element.style.left = '';
-      element.style.top = '';
-      if (this.originalParent && element.parentNode !== this.originalParent) this.originalParent.insertBefore(element, this.originalNext);
-    }
+    this.restoreElementToOrigin(element);
     this.clearContainerHighlights();
     this.clearDragState();
   }
