@@ -9,8 +9,10 @@ const LEVELS = Object.freeze({
   8: { fields: ['color', 'size', 'genre', 'symbol', 'thickness'], maxContainers: 6, objects: [14, 14], modifiers: { timer: 0.45, forbidden: 0.27, decoy: 0.19, moving: 0.12, chaos: 0.08, hidden: 0.04 }, timeLimit: { base: 30, perObject: 5, perDifficulty: 3, min: 15 } },
 });
 
-function normalize(value) {
-  return Math.max(1, Math.min(8, Math.floor(Number(value) || 1)));
+const MAX_DIFFICULTY = Object.keys(LEVELS).reduce((max, key) => Math.max(max, Number(key)), 1);
+
+function normalizeDifficulty(value) {
+  return Math.max(1, Math.min(MAX_DIFFICULTY, Math.floor(Number(value) || 1)));
 }
 
 function cloneConfig(config) {
@@ -25,8 +27,10 @@ function cloneConfig(config) {
 
 export class LevelConfig {
   static forDifficulty(difficulty) {
-    return cloneConfig(LEVELS[normalize(difficulty)]);
+    return cloneConfig(LEVELS[normalizeDifficulty(difficulty)]);
   }
 
-  static maxDifficulty() { return 8; }
+  static maxDifficulty() {
+    return MAX_DIFFICULTY;
+  }
 }
