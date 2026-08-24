@@ -5,177 +5,96 @@ import { ContainerGenerator } from './ContainerGenerator.js';
 import { ObjectGenerator } from './ObjectGenerator.js';
 import { LevelValidator } from './LevelValidator.js';
 
+const MAX_ATTEMPTS = 10;
+
 export class ProceduralLevelGenerator {
   static generate(levelNum, theme) {
     const seed = generateSeed(levelNum);
-    const rng = new SeededRandom(seed);
     const difficulty = DifficultyManager.getDifficulty(levelNum);
     const labels = theme.getBookLabels();
 
-    // Generate main rule
-    const mainRule = RuleGenerator.generate(rng, difficulty, labels);
-    
-    // Generate containers
-    const containers = ContainerGenerator.generate(rng, difficulty, mainRule, theme);
-    
-    // Generate objects
-    const objectCount = DifficultyManager.getObjectCount(difficulty, levelNum, rng);
-    const objects = ObjectGenerator.generate(rng, objectCount, theme, containers, difficulty);
-
-    // Generate modifiers
-    const modChances = DifficultyManager.getModifierChance(difficulty);
-    const modifiers = [];
-    
-    if (rng.chance(modChances.timer)) modifiers.push('timer');
-    if (rng.chance(modChances.forbidden)) modifiers.push('forbidden');
-    if (rng.chance(modChances.decoy)) modifiers.push('decoy');
-    if (rng.chance(modChances.moving)) modifiers.push('moving');
-    if (rng.chance(modChances.chaos)) modifiers.push('chaos');
-    if (rng.chance(modChances.hidden)) modifiers.push('hidden');
-
-    let timeLimit = null;
-    if (modifiers.includes('timer')) {
-      timeLimit = Math.max(15, 30 + objects.length * 5 - difficulty * 3);
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+      const attemptSeed = seed + attempt * 1000;
+      const level = this.generateAttempt(levelNum, theme, difficulty, labels, attemptSeed);
+      if (LevelValidator.validate(level)) return level;
     }
 
-    const level = {
+    return this.generateSimpleLevel(levelNum, theme, difficulty);
+  }
+
+  static generateAttempt(levelNum, theme, difficulty, labels, seed) {
+    const rng = new SeededRandom(seed);
+    const rule = RuleGenerator.generate(rng, difficulty, labels);
+    const containers = ContainerGenerator.generate(rng, difficulty, rule, theme);
+    const objectCount = DifficultyManager.getObjectCount(difficulty, levelNum, rng);
+    const objects = ObjectGenerator.generate(rng, objectCount, theme, containers, difficulty);
+    const modChances = DifficultyManager.getModifierChance(difficulty);
+    const modifiers = [];
+
+    for (const [modifier, chance] of Object.entries(modChances)) {
+      if (rng.chance(chance)) modifiers.push(modifier);
+    }
+
+    const timeLimit = modifiers.includes('timer')
+      ? Math.max(15, 30 + objects.length * 5 - difficulty * 3)
+      : null;
+
+    return {
       id: levelNum,
       difficulty,
       theme: theme.name,
-      rule: mainRule,
-      ruleText: this.formatTask(mainRule, labels),
+      rule,
+      ruleText: this.formatTask(rule, labels),
       objects,
       containers,
       modifiers,
       timeLimit,
       seed,
     };
-
-    // Try to validate, with fallback attempts
-    if (!LevelValidator.validate(level)) {
-      // Try with different seed
-      for (let attempt = 1; attempt <= 10; attempt++) {
-        const altSeed = seed + attempt * 1000;
-        const altRng = new SeededRandom(altSeed);
-        
-        const altObjects = ObjectGenerator.generate(
-          altRng,
-          objectCount,
-          theme,
-          containers,
-          difficulty
-        );
-        
-        const altLevel = {
-          ...level,
-          objects: altObjects,
-          seed: altSeed,
-        };
-        
-        if (LevelValidator.validate(altLevel)) {
-          return altLevel;
-        }
-      }
-      
-      // Last resort: generate a simple valid level
-      return this.generateSimpleLevel(levelNum, theme, difficulty);
-    }
-    
-    return level;
   }
 
   static generateSimpleLevel(levelNum, theme, difficulty) {
     const labels = theme.getBookLabels();
-    const simpleRule = {
-      field: 'color',
-      op: 'eq',
-      value: 'red',
-      valueLabel: labels.color.red,
-    };
-    
-    const containers = [
-      {
-        id: 'main',
-        label: labels.color.red,
-        rule: simpleRule,
-        type: 'normal',
-      },
-      {
-        id: 'c1',
-        label: labels.color.blue,
-        rule: {
-          field: 'color',
-          op: 'eq',
-          value: 'blue',
-          valueLabel: labels.color.blue,
-        },
-        type: 'normal',
-      },
-    ];
-    
-    const objects = [
-      this.createBook('red', labels),
-      this.createBook('red', labels),
-      this.createBook('blue', labels),
-      this.createBook('blue', labels),
-    ];
-    
+    const colors = Object.keys(labels.color || {});
+    const primary = colors[0] || 'red';
+    const secondary = colors[1] || primary;
+    const simpleRule = { field: 'color', op: 'eq', value: primary, valueLabel: labels.color?.[primary] || primary };
+    const secondaryRule = { field: 'color', op: 'eq', value: secondary, valueLabel: labels.color?.[secondary] || secondary };
+
+    const objects = Array.from({ length: 4 }, (_, index) => ObjectGenerator.createBookFromRule(
+      index % 2 === 0 ? simpleRule : secondaryRule,
+      theme.getAllBookProperties(),
+      index,
+    ));
+
     return {
       id: levelNum,
       difficulty,
       theme: theme.name,
       rule: simpleRule,
-      ruleText: 'ЦВЕТ: КРАСНЫЕ',
+      ruleText: `ЦВЕТ: ${(labels.color?.[primary] || primary).toUpperCase()}`,
       objects,
-      containers,
+      containers: [
+        { id: 'main', label: labels.color?.[primary] || primary, rule: simpleRule, type: 'normal' },
+        { id: 'secondary', label: labels.color?.[secondary] || secondary, rule: secondaryRule, type: 'normal' },
+      ],
       modifiers: [],
       timeLimit: null,
       seed: levelNum,
     };
   }
 
-  static createBook(color, labels) {
-    return {
-      uid: `book_${Date.now()}_${Math.random()}`,
-      type: 'book',
-      color,
-      size: 'medium',
-      genre: 'fiction',
-      symbol: 'none',
-      thickness: 'normal',
-    };
-  }
-
   static formatTask(rule, labels) {
     if (!rule) return 'РАЗЛОЖИ ВСЁ';
-    
-    if (rule.type === 'and') {
-      const parts = rule.rules.map(r => this.formatTask(r, labels));
-      return 'РАЗЛОЖИ: ' + parts.join(' + ');
-    }
-    
-    if (rule.type === 'or') {
-      const parts = rule.rules.map(r => this.formatTask(r, labels));
-      return 'РАЗЛОЖИ: ' + parts.join(' / ');
-    }
-    
-    if (rule.type === 'not') {
-      return 'РАЗЛОЖИ: НЕ ' + this.formatTask(rule.rule, labels);
-    }
-    
-    const fieldNames = {
-      color: 'ЦВЕТ',
-      size: 'РАЗМЕР',
-      genre: 'ЖАНР',
-      symbol: 'ЗНАК',
-      thickness: 'ТОЛЩИНА',
-    };
-    
+    if (rule.type === 'and') return `РАЗЛОЖИ: ${rule.rules.map(r => this.formatTask(r, labels)).join(' + ')}`;
+    if (rule.type === 'or') return `РАЗЛОЖИ: ${rule.rules.map(r => this.formatTask(r, labels)).join(' / ')}`;
+    if (rule.type === 'not') return `РАЗЛОЖИ: НЕ ${this.formatTask(rule.rule, labels)}`;
+
+    const fieldNames = { color: 'ЦВЕТ', size: 'РАЗМЕР', genre: 'ЖАНР', symbol: 'ЗНАК', thickness: 'ТОЛЩИНА' };
     const field = fieldNames[rule.field] || rule.field;
     const val = rule.valueLabel || labels[rule.field]?.[rule.value] || rule.value;
-    
-    if (rule.op === 'eq') return `${field}: ${val.toUpperCase()}`;
-    if (rule.op === 'ne') return `${field} ≠ ${val.toUpperCase()}`;
-    return `${field}: ${val.toUpperCase()}`;
+    if (rule.op === 'eq') return `${field}: ${String(val).toUpperCase()}`;
+    if (rule.op === 'ne') return `${field} ≠ ${String(val).toUpperCase()}`;
+    return `${field}: ${String(val).toUpperCase()}`;
   }
 }
