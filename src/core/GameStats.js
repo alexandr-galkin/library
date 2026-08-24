@@ -19,6 +19,14 @@ export class GameStats {
     this.totalScore += value;
   }
 
+  undoCorrect(points) {
+    const value = Math.max(0, Number(points) || 0);
+    this.placed = Math.max(0, this.placed - 1);
+    this.levelScore = Math.max(0, this.levelScore - value);
+    this.totalScore = Math.max(0, this.totalScore - value);
+    this.combo = 0;
+  }
+
   addMistake() {
     this.combo = 0;
     this.mistakes += 1;
