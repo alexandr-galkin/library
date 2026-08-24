@@ -1,4 +1,4 @@
-import { t } from '../i18n/index.js';
+import { t, getLocale, setLocale } from '../i18n/index.js';
 
 export class Settings {
   constructor({ getState, sound, onSettingChanged, onBack }) {
@@ -16,6 +16,7 @@ export class Settings {
   render() {
     const settings = this.getState().settings;
     this.cleanupListeners();
+    const locale = getLocale();
     this.container.innerHTML = `
       <div class="menu-container">
         <div class="menu-background"><div class="menu-particles"></div></div>
@@ -25,6 +26,19 @@ export class Settings {
             ${this.renderToggle('sound', '🔊', t('settings.sound'), t('settings.soundDescription'), settings.sound)}
             ${this.renderToggle('anim', '✨', t('settings.animations'), t('settings.animationsDescription'), settings.anim)}
             ${this.renderToggle('reduced', '🎯', t('settings.reduced'), t('settings.reducedDescription'), settings.reduced)}
+            <div class="setting-item language-setting">
+              <div class="setting-info">
+                <div class="setting-icon">🌐</div>
+                <div class="setting-text">
+                  <div class="setting-name">${t('settings.language')}</div>
+                  <div class="setting-desc">${t('settings.languageDescription')}</div>
+                </div>
+              </div>
+              <div class="language-options" role="group" aria-label="${t('settings.language')}">
+                <button class="language-option ${locale === 'ru' ? 'active' : ''}" data-locale="ru">${t('settings.russian')}</button>
+                <button class="language-option ${locale === 'en' ? 'active' : ''}" data-locale="en">${t('settings.english')}</button>
+              </div>
+            </div>
           </div>
           <button class="back-button" id="settings-back"><span class="back-icon">←</span><span>${this.fromGame ? t('settings.backToGame') : t('settings.backToMenu')}</span></button>
         </div>
@@ -41,6 +55,18 @@ export class Settings {
       };
       toggle.addEventListener('click', handler);
       this.eventListeners.push({ element: toggle, handler });
+    });
+
+    this.container.querySelectorAll('.language-option').forEach(button => {
+      const handler = () => {
+        const locale = button.dataset.locale;
+        if (!locale || locale === getLocale()) return;
+        setLocale(locale);
+        this.render();
+        this.show();
+      };
+      button.addEventListener('click', handler);
+      this.eventListeners.push({ element: button, handler });
     });
 
     const backButton = this.container.querySelector('#settings-back');
