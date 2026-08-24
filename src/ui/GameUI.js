@@ -40,6 +40,7 @@ export class GameUI {
     const items = [
       ['УРОВЕНЬ', 'hud-level', '1'],
       ['СЛОЖНОСТЬ', 'hud-diff', '1'],
+      ['ХОДЫ', 'hud-moves', '0'],
       ['ОЧКИ', 'hud-score', '0'],
     ];
     for (const [label, id, value] of items) {
@@ -52,29 +53,17 @@ export class GameUI {
       item.append(valueElement);
       hud.append(item);
     }
-
-    const timer = this.document.createElement('div');
-    timer.className = 'hud-item hud-timer';
-    timer.hidden = true;
-    timer.append('⏱ ');
-    const timerValue = this.document.createElement('span');
-    timerValue.textContent = '30';
-    timer.append(timerValue);
-    hud.append(timer);
-
     const menu = this.document.createElement('button');
     menu.className = 'menu-button';
     menu.type = 'button';
     menu.append('☰ ', 'Меню');
     menu.addEventListener('click', () => this.actions.onPause?.());
     hud.append(menu);
-
     this.elements.hud = hud;
     this.elements.hudLevel = hud.querySelector('#hud-level');
     this.elements.hudDiff = hud.querySelector('#hud-diff');
+    this.elements.hudMoves = hud.querySelector('#hud-moves');
     this.elements.hudScore = hud.querySelector('#hud-score');
-    this.elements.hudTimer = timer;
-    this.elements.hudTimerSpan = timerValue;
     this.app.append(hud);
   }
 
@@ -83,7 +72,6 @@ export class GameUI {
     banner.className = 'rule-banner';
     const title = this.document.createElement('h2');
     title.id = 'rule-text';
-    title.textContent = 'РАЗЛОЖИ КНИГИ';
     const subtitle = this.document.createElement('div');
     subtitle.className = 'sub';
     subtitle.id = 'rule-sub';
@@ -99,17 +87,18 @@ export class GameUI {
     this.elements.comboDisplay.className = 'combo-display';
     this.elements.objectsZone = this.document.createElement('div');
     this.elements.objectsZone.className = 'objects-zone';
+    this.elements.objectsZone.hidden = true;
     this.elements.containersZone = this.document.createElement('div');
     this.elements.containersZone.className = 'containers-zone';
     this.app.append(this.elements.comboDisplay, this.elements.objectsZone, this.elements.containersZone);
   }
 
   buildOverlays() {
-    this.elements.failOverlay = this.createOverlay('fail-overlay', 'ВРЕМЯ ВЫШЛО!', 'Попробуй ещё раз', [
-      ['retry', '↻ ПОПРОБОВАТЬ СНОВА', 'menu-btn-primary'],
+    this.elements.failOverlay = this.createOverlay('fail-overlay', 'НЕТ ХОДОВ', 'Откати решение или начни уровень заново', [
+      ['retry', '↻ НАЧАТЬ ЗАНОВО', 'menu-btn-primary'],
       ['menu', '← В МЕНЮ', 'menu-btn-secondary'],
     ]);
-    this.elements.pauseOverlay = this.createOverlay('pause-overlay', '⏸ ПАУЗА', 'Игра приостановлена', [
+    this.elements.pauseOverlay = this.createOverlay('pause-overlay', '⏸ ПАУЗА', 'Головоломка приостановлена', [
       ['resume', '▶ ПРОДОЛЖИТЬ', 'menu-btn-primary'],
       ['settings', '⚙ НАСТРОЙКИ', 'menu-btn-secondary'],
       ['menu', '← В МЕНЮ', 'menu-btn-secondary'],
@@ -147,67 +136,95 @@ export class GameUI {
 
   hideOverlay(overlay) { overlay?.classList.remove('active'); }
 
-  updateHUD(level, difficulty, score) {
+  updateHUD(level, difficulty, score, moves = 0) {
     this.elements.hudLevel.textContent = String(level);
     this.elements.hudDiff.textContent = String(difficulty);
     this.elements.hudScore.textContent = String(score);
+    this.elements.hudMoves.textContent = String(moves);
   }
 
-  showTimer(time) { this.elements.hudTimer.hidden = false; this.updateTimer(time, false); }
-  updateTimer(time, warning) {
-    this.elements.hudTimerSpan.textContent = String(time);
-    this.elements.hudTimer.classList.toggle('warning', Boolean(warning));
-  }
-  hideTimer() { this.elements.hudTimer.hidden = true; }
+  setMoves(moves) { this.elements.hudMoves.textContent = String(moves); }
+  showTimer() {}
+  updateTimer() {}
+  hideTimer() {}
 
   setRule(text, sub) {
     this.elements.ruleText.textContent = text ?? '';
-    this.elements.ruleSub.textContent = sub ?? '';
+    this.elements.ruleSub.textContent = sub ? `${sub} · Верхняя книга переносится первой` : 'Верхняя книга переносится первой';
   }
 
-  renderObjects(objects) {
-    const fragment = this.document.createDocumentFragment();
-    for (const object of objects) fragment.append(this.theme.renderBook(object));
-    this.elements.objectsZone.replaceChildren(fragment);
-  }
+  renderObjects() { this.elements.objectsZone.replaceChildren(); }
 
-  renderContainers(containers) {
+  renderContainers(containers, objects = []) {
+    const byId = new Map(objects.map(object => [object.uid, object]));
     const fragment = this.document.createDocumentFragment();
     for (const container of containers) {
       const element = this.document.createElement('div');
       element.className = 'shelf-container';
-      if (container.type === 'forbidden') element.classList.add('forbidden');
+      if (container.type === 'empty') element.classList.add('empty-shelf');
       element.dataset.id = container.id;
+      element.dataset.capacity = String(container.capacity);
+
+      const header = this.document.createElement('div');
+      header.className = 'shelf-header';
       const label = this.document.createElement('div');
       label.className = 'shelf-label';
-      label.textContent = container.label ?? '';
+      label.textContent = container.type === 'empty' ? 'СВОБОДНАЯ ПОЛКА' : `ПОЛКА ${container.index + 1}`;
+      const count = this.document.createElement('span');
+      count.className = 'shelf-count';
+      count.textContent = `${container.items.length}/${container.capacity}`;
+      header.append(label, count);
+
       const items = this.document.createElement('div');
       items.className = 'shelf-items';
-      element.append(label, items);
+      for (const uid of container.items) {
+        const object = byId.get(uid);
+        if (object) items.append(this.theme.renderBook(object));
+      }
+      element.append(header, items);
       fragment.append(element);
     }
     this.elements.containersZone.replaceChildren(fragment);
   }
 
-  moveToContainer(bookElement, containerElement) {
+  moveToContainer(bookElement, containerElement, level) {
     const items = containerElement?.querySelector('.shelf-items');
-    const svg = bookElement?.querySelector('svg');
-    if (!items || !svg) return;
-    const mini = this.document.createElement('div');
-    mini.append(svg.cloneNode(true));
-    mini.style.width = '28px';
-    items.append(mini);
+    if (!items || !bookElement || !level) return;
+    const object = level.objects.find(item => item.uid === bookElement.dataset.uid);
+    const source = object && level.containers.find(container => container.id === object.shelfId);
+    const target = level.containers.find(container => container.id === containerElement.dataset.id);
+    if (!object || !source || !target) return;
+
+    source.items = source.items.filter(uid => uid !== object.uid);
+    target.items.push(object.uid);
+    object.shelfId = target.id;
+    object.depth = target.items.length - 1;
+
+    items.append(bookElement);
+    bookElement.classList.remove('correct');
+    const count = containerElement.querySelector('.shelf-count');
+    if (count) count.textContent = `${target.items.length}/${target.capacity}`;
+    const sourceElement = this.elements.containersZone.querySelector(`[data-id="${source.id}"]`);
+    const sourceCount = sourceElement?.querySelector('.shelf-count');
+    if (sourceCount) sourceCount.textContent = `${source.items.length}/${source.capacity}`;
+    containerElement.classList.toggle('empty-shelf', target.items.length === 0);
+    sourceElement?.classList.toggle('empty-shelf', source.items.length === 0);
+  }
+
+  isSolved(level) {
+    return level.containers.every(container => {
+      if (container.items.length === 0) return true;
+      if (container.items.length !== level.capacity) return false;
+      const colors = container.items.map(uid => level.objects.find(object => object.uid === uid)?.color);
+      return colors.every(color => color && color === colors[0]);
+    });
   }
 
   showFail() { this.elements.failOverlay.classList.add('active'); }
   hideFail() { this.hideOverlay(this.elements.failOverlay); }
   showPauseMenu() { this.elements.pauseOverlay.classList.add('active'); }
   hidePauseMenu() { this.hideOverlay(this.elements.pauseOverlay); }
-
-  showCombo(combo) {
-    this.elements.comboDisplay.textContent = `КОМБО x${combo}`;
-    this.elements.comboDisplay.classList.add('show');
-  }
+  showCombo(combo) { this.elements.comboDisplay.textContent = `СЕРИЯ x${combo}`; this.elements.comboDisplay.classList.add('show'); }
   hideCombo() { this.elements.comboDisplay.classList.remove('show'); }
 
   showPopup(x, y, text) {
@@ -217,15 +234,8 @@ export class GameUI {
     element.style.left = `${x}px`;
     element.style.top = `${y}px`;
     this.app.append(element);
-    const timeout = this.windowSetTimeout(() => {
-      this.timeouts.delete(timeout);
-      element.remove();
-    }, 1000);
+    const timeout = setTimeout(() => { this.timeouts.delete(timeout); element.remove(); }, 700);
     this.timeouts.add(timeout);
-  }
-
-  windowSetTimeout(callback, delay) {
-    return setTimeout(callback, delay);
   }
 
   destroy() {
