@@ -29,15 +29,7 @@ export class ProceduralLevelGenerator {
     const objectCount = DifficultyManager.getObjectCount(difficulty, levelNum, rng);
     const objects = ObjectGenerator.generate(rng, objectCount, theme, containers, difficulty);
     const modChances = DifficultyManager.getModifierChance(difficulty);
-    const modifiers = [];
-
-    for (const [modifier, chance] of Object.entries(modChances)) {
-      if (rng.chance(chance)) modifiers.push(modifier);
-    }
-
-    const timeLimit = modifiers.includes('timer')
-      ? Math.max(15, 30 + objects.length * 5 - difficulty * 3)
-      : null;
+    const modifiers = Object.entries(modChances).filter(([, chance]) => rng.chance(chance)).map(([modifier]) => modifier);
 
     return {
       id: levelNum,
@@ -48,7 +40,7 @@ export class ProceduralLevelGenerator {
       objects,
       containers,
       modifiers,
-      timeLimit,
+      timeLimit: DifficultyManager.getTimeLimit(difficulty, objects.length),
       seed,
     };
   }
@@ -58,14 +50,10 @@ export class ProceduralLevelGenerator {
     const colors = Object.keys(labels.color || {});
     const primary = colors[0] || 'red';
     const secondary = colors[1] || primary;
+    const props = theme.getAllBookProperties();
     const simpleRule = { field: 'color', op: 'eq', value: primary, valueLabel: labels.color?.[primary] || primary };
     const secondaryRule = { field: 'color', op: 'eq', value: secondary, valueLabel: labels.color?.[secondary] || secondary };
-
-    const objects = Array.from({ length: 4 }, (_, index) => ObjectGenerator.createBookFromRule(
-      index % 2 === 0 ? simpleRule : secondaryRule,
-      theme.getAllBookProperties(),
-      index,
-    ));
+    const objects = Array.from({ length: 4 }, (_, index) => ObjectGenerator.createBookFromRule(index % 2 === 0 ? simpleRule : secondaryRule, props, index));
 
     return {
       id: levelNum,
@@ -89,7 +77,6 @@ export class ProceduralLevelGenerator {
     if (rule.type === 'and') return `РАЗЛОЖИ: ${rule.rules.map(r => this.formatTask(r, labels)).join(' + ')}`;
     if (rule.type === 'or') return `РАЗЛОЖИ: ${rule.rules.map(r => this.formatTask(r, labels)).join(' / ')}`;
     if (rule.type === 'not') return `РАЗЛОЖИ: НЕ ${this.formatTask(rule.rule, labels)}`;
-
     const fieldNames = { color: 'ЦВЕТ', size: 'РАЗМЕР', genre: 'ЖАНР', symbol: 'ЗНАК', thickness: 'ТОЛЩИНА' };
     const field = fieldNames[rule.field] || rule.field;
     const val = rule.valueLabel || labels[rule.field]?.[rule.value] || rule.value;
