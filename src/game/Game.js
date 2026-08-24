@@ -37,7 +37,6 @@ export class Game {
   }
 
   get score() { return this.stats.totalScore; }
-  get combo() { return this.stats.combo; }
   get levelScore() { return this.stats.levelScore; }
   get placed() { return this.stats.placed; }
   get currentLevel() { return this.session.level; }
@@ -103,10 +102,9 @@ export class Game {
   finishLevel(level) {
     this.sound.playLevelComplete();
     const moveBonus = ScoreCalculator.timeBonus(Math.max(0, 120 - level.moves), true);
-    const accuracyBonus = 0;
-    this.stats.addBonus(moveBonus + accuracyBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
+    this.stats.addBonus(moveBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
     this.menu.render(); this.particles.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30);
-    this.levelComplete.show(level.id, this.levelScore, this.combo, moveBonus, accuracyBonus, 3); this.completionTimeout = null;
+    this.levelComplete.show(level.id, this.levelScore, moveBonus); this.completionTimeout = null;
   }
 
   showMenu() { this.session.stop(); this.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
