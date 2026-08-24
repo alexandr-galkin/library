@@ -48,6 +48,7 @@ describe('GameSession', () => {
   it('does not persist progress when next-level generation fails', () => {
     const { session, state, timer, generateLevel } = createSession();
     session.start();
+    timer.stop.mockClear();
     generateLevel.mockImplementationOnce(() => { throw new Error('generation failed'); });
 
     expect(() => session.next()).toThrow('generation failed');
