@@ -1,30 +1,48 @@
 import { RuleEngine } from '../rules/RuleEngine.js';
 
 const BOOK_FIELDS = Object.freeze(['color', 'size', 'genre', 'symbol', 'thickness']);
+const MAX_MATCH_ATTEMPTS = 500;
 
 export class ObjectGenerator {
-  static generate(rng, count, theme, containers, difficulty) {
+  static generate(rng, count, theme, containers) {
+    if (!rng || typeof rng.pick !== 'function' || typeof rng.shuffle !== 'function') throw new TypeError('ObjectGenerator requires a compatible RNG');
+    if (!Number.isInteger(count) || count < 1) throw new RangeError('ObjectGenerator count must be positive');
+
     const props = theme.getAllBookProperties();
     const normalContainers = containers.filter(container => container.type !== 'forbidden');
+    if (!normalContainers.length) throw new Error('Cannot generate objects without normal containers');
+    if (count < normalContainers.length) throw new Error('Object count must cover every normal container');
+
     const objects = [];
-    const maxAttempts = Math.max(100, count * 200);
-
-    for (let attempt = 0; objects.length < count && attempt < maxAttempts; attempt += 1) {
-      const object = this.createRandomBook(rng, props, objects.length);
-      if (normalContainers.some(container => RuleEngine.evaluate(object, container.rule))) objects.push(object);
-    }
-
-    const fallbackRule = normalContainers[0]?.rule;
-    for (let attempt = 0; objects.length < count && attempt < maxAttempts; attempt += 1) {
-      const object = this.createBookFromRule(fallbackRule, props, objects.length) || this.createRandomBook(rng, props, objects.length);
-      if (!fallbackRule || RuleEngine.evaluate(object, fallbackRule)) objects.push(object);
+    for (const container of normalContainers) {
+      const object = this.findMatchingObject(rng, props, container.rule, objects.length);
+      if (!object) throw new Error(`Unable to create object for container ${container.id}`);
+      objects.push(object);
     }
 
     while (objects.length < count) {
-      objects.push(this.createRandomBook(rng, props, objects.length));
+      const object = this.findAnyMatchingObject(rng, props, normalContainers, objects.length);
+      if (!object) throw new Error('Unable to generate a valid object');
+      objects.push(object);
     }
 
     return rng.shuffle(objects);
+  }
+
+  static findMatchingObject(rng, props, rule, index) {
+    for (let attempt = 0; attempt < MAX_MATCH_ATTEMPTS; attempt += 1) {
+      const object = this.createRandomBook(rng, props, index);
+      if (RuleEngine.evaluate(object, rule)) return object;
+    }
+    return this.createBookFromRule(rule, props, index);
+  }
+
+  static findAnyMatchingObject(rng, props, containers, index) {
+    for (let attempt = 0; attempt < MAX_MATCH_ATTEMPTS; attempt += 1) {
+      const object = this.createRandomBook(rng, props, index);
+      if (containers.some(container => RuleEngine.evaluate(object, container.rule))) return object;
+    }
+    return null;
   }
 
   static createRandomBook(rng, props, index) {
@@ -40,8 +58,10 @@ export class ObjectGenerator {
   }
 
   static createBookFromRule(rule, props, index) {
+    if (!rule) return null;
     const base = this.createBaseBook(props, index);
-    return this.applyRuleConstraints(base, rule);
+    const object = this.applyRuleConstraints(base, rule);
+    return object && RuleEngine.evaluate(object, rule) ? object : null;
   }
 
   static createBaseBook(props, index) {
@@ -59,9 +79,13 @@ export class ObjectGenerator {
   static applyRuleConstraints(book, rule) {
     if (!rule) return book;
     if (rule.type === 'and') {
-      return rule.rules.reduce((current, child) => this.applyRuleConstraints(current, child), book);
+      return rule.rules.reduce((current, child) => current ? this.applyRuleConstraints(current, child) : null, book);
     }
-    if (rule.type === 'or' || rule.type === 'not') return RuleEngine.evaluate(book, rule) ? book : null;
+    if (rule.type === 'or') {
+      const branch = rule.rules?.find(Boolean);
+      return branch ? this.applyRuleConstraints(book, branch) : null;
+    }
+    if (rule.type === 'not') return RuleEngine.evaluate(book, rule) ? book : null;
     if (BOOK_FIELDS.includes(rule.field) && rule.op === 'eq' && rule.value !== undefined) {
       return { ...book, [rule.field]: rule.value };
     }
