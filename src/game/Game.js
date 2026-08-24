@@ -24,11 +24,7 @@ export class Game {
     this.theme = this.themeManager.current;
     this.sound = new SoundManager();
     this.particles = new ParticleSystem();
-    this.timer = new GameTimer({
-      onTick: seconds => this.handleTimerTick(seconds),
-      onComplete: () => this.handleFail(),
-    });
-
+    this.timer = new GameTimer({ onTick: seconds => this.handleTimerTick(seconds), onComplete: () => this.handleFail() });
     this.drag = null;
     this.ui = null;
     this.currentLevel = null;
@@ -39,57 +35,59 @@ export class Game {
     this.completionTimeout = null;
     this.visibilityHandler = () => this.handleVisibilityChange();
 
-    this.menu = new Menu(this);
-    this.settings = new Settings(this);
+    this.menu = new Menu({
+      getState: () => this.state.data,
+      onPlay: () => this.startGame(),
+      onSettings: () => this.showSettings(),
+    });
+    this.settings = new Settings({
+      getState: () => this.state.data,
+      sound: this.sound,
+      onSettingChanged: (key, value) => this.updateSetting(key, value),
+      onBack: fromGame => {
+        if (fromGame) {
+          this.settings.fromGame = false;
+          this.settings.hide();
+          this.resumeGame();
+        } else {
+          this.showMenu();
+        }
+      },
+    });
     this.levelComplete = new LevelComplete(this);
 
     this.theme.injectStyles();
     this.app.append(this.menu.container, this.settings.container);
     this.menu.show();
     this.settings.hide();
-
     this.applySettings();
     document.addEventListener('visibilitychange', this.visibilityHandler);
   }
 
-  get score() {
-    return this.stats.totalScore;
-  }
-
-  set score(value) {
-    this.stats.totalScore = Math.max(0, value);
-  }
-
-  get combo() {
-    return this.stats.combo;
-  }
-
-  get levelScore() {
-    return this.stats.levelScore;
-  }
-
-  get placed() {
-    return this.stats.placed;
-  }
-
-  get mistakes() {
-    return this.stats.mistakes;
-  }
-
-  get isPaused() {
-    return this.status === GameStatus.PAUSED;
-  }
-
-  set isPaused(value) {
-    if (value) this.status = GameStatus.PAUSED;
-    else if (this.status === GameStatus.PAUSED) this.status = GameStatus.PLAYING;
-  }
+  get score() { return this.stats.totalScore; }
+  set score(value) { this.stats.totalScore = Math.max(0, value); }
+  get combo() { return this.stats.combo; }
+  get levelScore() { return this.stats.levelScore; }
+  get placed() { return this.stats.placed; }
+  get mistakes() { return this.stats.mistakes; }
+  get isPaused() { return this.status === GameStatus.PAUSED; }
+  set isPaused(value) { if (value) this.status = GameStatus.PAUSED; else if (this.status === GameStatus.PAUSED) this.status = GameStatus.PLAYING; }
 
   applySettings() {
     const settings = this.state.data.settings;
     this.sound.enabled = settings.sound !== false;
     this.animations = settings.anim !== false;
     document.body.classList.toggle('reduced-motion', settings.reduced === true);
+  }
+
+  updateSetting(key, value) {
+    this.state.data.settings[key] = value;
+    this.state.save();
+    this.applySettings();
+    if (key === 'sound' && value) {
+      this.sound.init();
+      this.sound.playPick();
+    }
   }
 
   handleVisibilityChange() {
@@ -101,7 +99,6 @@ export class Game {
 
   pauseGame() {
     if (!this.isInGame || this.isPaused) return;
-
     this.status = GameStatus.PAUSED;
     this.timer.pause();
     this.sound.pauseAudio();
@@ -110,7 +107,6 @@ export class Game {
 
   resumeGame() {
     if (!this.isPaused) return;
-
     this.status = GameStatus.PLAYING;
     this.timer.resume();
     this.sound.resumeAudio();
@@ -119,7 +115,6 @@ export class Game {
 
   startGame() {
     if (this.isTransitioning) return;
-
     this.isTransitioning = true;
     this.sound.init();
     this.stats.totalScore = 0;
@@ -137,7 +132,6 @@ export class Game {
       this.currentLevel = ProceduralLevelGenerator.generate(levelNumber, this.theme);
       this.stats.resetLevel();
       this.status = GameStatus.PLAYING;
-
       this.ui = new GameUI(this);
       this.drag = new DragController({
         getLevel: () => this.currentLevel,
@@ -152,7 +146,6 @@ export class Game {
       this.ui.setRule(this.currentLevel.ruleText, this.theme.displayName);
       this.ui.renderObjects(this.currentLevel.objects, this.theme);
       this.ui.renderContainers(this.currentLevel.containers);
-
       if (this.currentLevel.timeLimit) {
         this.ui.showTimer(this.currentLevel.timeLimit);
         this.startTimer(this.currentLevel.timeLimit);
@@ -177,11 +170,8 @@ export class Game {
   }
 
   cleanupLevel() {
-    if (this.completionTimeout) {
-      clearTimeout(this.completionTimeout);
-      this.completionTimeout = null;
-    }
-
+    if (this.completionTimeout) clearTimeout(this.completionTimeout);
+    this.completionTimeout = null;
     this.drag?.destroy();
     this.drag = null;
     this.ui?.destroy();
@@ -192,7 +182,6 @@ export class Game {
   retryLevel() {
     if (this.isTransitioning) return;
     this.isTransitioning = true;
-    this.status = GameStatus.PLAYING;
     this.loadLevel(this.state.data.currentLevel);
     this.isTransitioning = false;
   }
@@ -206,28 +195,19 @@ export class Game {
     this.isTransitioning = false;
   }
 
-  startTimer(seconds) {
-    this.timer.start(seconds);
-  }
+  startTimer(seconds) { this.timer.start(seconds); }
+  stopTimer() { this.timer.stop(); }
 
   handleTimerTick(seconds) {
-    if (!this.ui) return;
-
-    this.ui.updateTimer(seconds, seconds <= 5);
+    this.ui?.updateTimer(seconds, seconds <= 5);
     if (seconds > 0 && seconds <= 5) this.sound.playTimerWarning();
-  }
-
-  stopTimer() {
-    this.timer.stop();
   }
 
   handleCorrect(object, element, containerElement) {
     if (this.isTransitioning || this.isPaused || element.classList.contains('correct')) return;
 
-    const nextCombo = this.stats.combo + 1;
-    const points = ScoreCalculator.pointsForCombo(nextCombo);
+    const points = ScoreCalculator.pointsForCombo(this.stats.combo + 1);
     this.stats.addCorrect(points);
-
     this.ui.updateHUD(this.currentLevel.id, this.currentLevel.difficulty, this.score);
     this.ui.moveToContainer(element, containerElement);
     element.classList.add('correct');
@@ -235,11 +215,8 @@ export class Game {
     const rect = containerElement.getBoundingClientRect();
     this.particles.emit(rect.left + rect.width / 2, rect.top + rect.height / 2, '#c9a227', 14);
     this.ui.showPopup(rect.left + rect.width / 2, rect.top, `+${points}`);
-
     if (this.combo >= 2) this.ui.showCombo(this.combo);
-    if (this.combo >= 3) this.sound.playCombo();
-    else this.sound.playCorrect();
-
+    if (this.combo >= 3) this.sound.playCombo(); else this.sound.playCorrect();
     setTimeout(() => element.remove(), 500);
 
     if (this.placed >= this.currentLevel.objects.length) {
@@ -251,7 +228,6 @@ export class Game {
 
   handleWrong(element) {
     if (this.isPaused || element.classList.contains('correct')) return;
-
     this.stats.addMistake();
     this.ui?.hideCombo();
     element.classList.add('shake');
@@ -262,11 +238,8 @@ export class Game {
   handleComplete() {
     this.stopTimer();
     this.sound.playLevelComplete();
-
     const timeBonus = ScoreCalculator.timeBonus(this.timer.remaining, Boolean(this.currentLevel.timeLimit));
-    const accuracy = this.stats.accuracy(this.currentLevel.objects.length);
-    const accuracyBonus = ScoreCalculator.accuracyBonus(accuracy);
-
+    const accuracyBonus = ScoreCalculator.accuracyBonus(this.stats.accuracy(this.currentLevel.objects.length));
     this.stats.addBonus(timeBonus + accuracyBonus);
     const stars = this.stats.stars();
 
@@ -274,18 +247,8 @@ export class Game {
     this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score);
     this.state.save();
     this.menu.render();
-
     this.particles.emit(window.innerWidth / 2, window.innerHeight / 2, '#e8d48b', 30);
-    this.levelComplete.show(
-      this.currentLevel.id,
-      this.levelScore,
-      this.combo,
-      this.mistakes,
-      timeBonus,
-      accuracyBonus,
-      stars,
-    );
-
+    this.levelComplete.show(this.currentLevel.id, this.levelScore, this.combo, this.mistakes, timeBonus, accuracyBonus, stars);
     this.status = GameStatus.PLAYING;
     this.isTransitioning = false;
     this.completionTimeout = null;
@@ -303,7 +266,6 @@ export class Game {
     this.cleanupLevel();
     this.isInGame = false;
     this.status = GameStatus.MENU;
-
     while (this.app.firstChild) this.app.firstChild.remove();
     this.app.append(this.menu.container, this.settings.container);
     this.menu.render();
