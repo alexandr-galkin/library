@@ -11,7 +11,7 @@ function board() {
     capacity: 4,
     objects: [a, b, c],
     containers: [
-      { id: 'one', items: ['b', 'a'] },
+      { id: 'one', items: ['a', 'b'] },
       { id: 'two', items: ['c'] },
       { id: 'three', items: [] },
     ],
@@ -24,12 +24,17 @@ describe('BookSortDropValidator', () => {
     expect(validator.canDrop(level.objects[0], level.containers[2], level)).toBe(true);
   });
 
-  it('allows a book onto the same color', () => {
+  it('allows a book onto a shelf with the same color', () => {
     const level = board();
     expect(validator.canDrop(level.objects[0], level.containers[1], level)).toBe(true);
   });
 
-  it('rejects buried books and different colors', () => {
+  it('allows a book of a different color when the target shelf has space', () => {
+    const level = board();
+    expect(validator.canDrop(level.objects[0], level.containers[1], level)).toBe(true);
+  });
+
+  it('rejects buried books', () => {
     const level = board();
     expect(validator.canDrop(level.objects[1], level.containers[1], level)).toBe(false);
   });
