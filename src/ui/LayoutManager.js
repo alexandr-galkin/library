@@ -33,22 +33,23 @@ export class LayoutManager {
         --game-width: 830px;
         --game-height: 640px;
         --game-padding: 20px;
-        --shelf-height: 540px;
+        --shelf-height: 460px;
         --shelf-gap: 14px;
         --shelf-columns: 5;
         --shelf-rows: 1;
         --book-width: ${book.width}px;
         --book-height: ${book.height}px;
-        --shelf-content-height: 515px;
+        --shelf-content-height: 435px;
         --book-stack-gap: -62px;
+        --book-lift: 10px;
       }
 
       #app { position: relative; width: 100vw; height: 100vh; min-width: 0; min-height: 0; overflow: hidden; }
       #app .game-table { position: absolute; left: 50%; top: 50%; width: var(--game-width); height: var(--game-height); max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); transform: translate(-50%, -50%); overflow: hidden; }
       #app .game-table .containers-zone { position: absolute; left: var(--game-padding); right: var(--game-padding); top: 50%; width: auto; height: var(--shelf-height); margin: 0; padding: 0; transform: translateY(-50%); display: grid; grid-template-columns: repeat(var(--shelf-columns), minmax(0, 1fr)); grid-template-rows: var(--shelf-height); grid-auto-rows: var(--shelf-height); gap: var(--shelf-gap); align-items: stretch; overflow: visible; z-index: 20; }
       #app .game-table .shelf-container { position: relative; box-sizing: border-box; width: 100%; height: var(--shelf-height); min-width: 0; min-height: var(--shelf-height); margin: 0; padding: 0; display: flex; flex-direction: column; justify-content: flex-end; overflow: visible; }
-      #app .game-table .shelf-items { position: relative; width: 100%; height: var(--shelf-content-height); min-height: var(--shelf-content-height); box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: var(--book-stack-gap); padding: 0 11px 5px; overflow: visible; }
-      #app .game-table .shelf-items > .book-item { position: relative; left: auto; top: auto; width: var(--book-width); height: var(--book-height); min-width: var(--book-width); min-height: var(--book-height); max-width: var(--book-width); max-height: var(--book-height); flex: 0 0 var(--book-height); margin: 0; transform-origin: center bottom; }
+      #app .game-table .shelf-items { position: relative; width: 100%; height: var(--shelf-content-height); min-height: var(--shelf-content-height); box-sizing: border-box; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: var(--book-stack-gap); padding: 0 11px 15px; overflow: visible; }
+      #app .game-table .shelf-items > .book-item { position: relative; left: auto; top: auto; width: var(--book-width); height: var(--book-height); min-width: var(--book-width); min-height: var(--book-height); max-width: var(--book-width); max-height: var(--book-height); flex: 0 0 var(--book-height); margin: 0; transform: translateY(calc(-1 * var(--book-lift))); transform-origin: center bottom; }
       #app .game-table .shelf-items > .book-item:nth-last-child(1) { z-index: 4; }
       #app .game-table .shelf-items > .book-item:nth-last-child(2) { z-index: 3; }
       #app .game-table .shelf-items > .book-item:nth-last-child(3) { z-index: 2; }
@@ -70,7 +71,7 @@ export class LayoutManager {
         :root { --shelf-height: 380px; --shelf-content-height: 355px; --shelf-gap: 4px; --book-width: ${book.width}px; --book-height: ${book.height}px; --book-stack-gap: -49px; }
         #app .game-table .containers-zone { left: 10px; right: 10px; gap: var(--shelf-gap); }
         #app .game-table .shelf-container { height: var(--shelf-height); min-height: var(--shelf-height); }
-        #app .game-table .shelf-items { padding: 0 7px 4px; }
+        #app .game-table .shelf-items { padding: 0 7px 14px; }
       }
     `;
   }
