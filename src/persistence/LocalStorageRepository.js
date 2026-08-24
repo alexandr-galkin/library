@@ -1,21 +1,29 @@
 const DEFAULT_KEY = 'library-game';
 
 export class LocalStorageRepository {
-  constructor(storage = globalThis.localStorage, key = DEFAULT_KEY) {
+  constructor(storage = globalThis.localStorage, key = DEFAULT_KEY, legacyKeys = []) {
     this.storage = storage;
     this.key = key;
+    this.legacyKeys = legacyKeys;
   }
 
   load() {
     if (!this.storage) return null;
 
-    try {
-      const raw = this.storage.getItem(this.key);
-      return raw ? JSON.parse(raw) : null;
-    } catch (error) {
-      console.warn('Failed to load saved game state:', error);
-      return null;
+    for (const key of [this.key, ...this.legacyKeys]) {
+      try {
+        const raw = this.storage.getItem(key);
+        if (!raw) continue;
+
+        const data = JSON.parse(raw);
+        if (key !== this.key) this.save(data);
+        return data;
+      } catch (error) {
+        console.warn(`Failed to load saved game state from ${key}:`, error);
+      }
     }
+
+    return null;
   }
 
   save(data) {
