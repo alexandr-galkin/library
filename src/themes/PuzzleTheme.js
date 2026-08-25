@@ -94,6 +94,14 @@ export class PuzzleTheme {
       .toggle-switch { position:relative; width:52px; height:28px; min-width:52px; cursor:pointer; touch-action:manipulation; }
       .toggle-switch::before { content:''; position:absolute; inset:-8px; z-index:0; }
       .toggle-switch > * { position:relative; z-index:1; }
+
+      /* Mobile: make the shelf columns visibly taller without changing desktop layout. */
+      @media (max-width: 600px) {
+        .shelf-container {
+          min-height: clamp(150px, 24vh, 210px);
+        }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .menu-button, .menu-btn, .level-complete-card button, .book-item { transition:none !important; animation:none !important; }
       }
