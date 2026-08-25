@@ -24,7 +24,6 @@ function loadSDK() {
 export async function initYandexSDK() {
   if (sdk) return sdk;
   if (sdkInitPromise) return sdkInitPromise;
-
   sdkInitPromise = (async () => {
     const YaGames = await loadSDK();
     if (!YaGames?.init) return null;
@@ -39,7 +38,6 @@ export async function initYandexSDK() {
       return null;
     }
   })();
-
   return sdkInitPromise;
 }
 
@@ -65,13 +63,17 @@ async function getPlayer() {
   return playerPromise;
 }
 
+function serializeData(data) {
+  try { return JSON.stringify(data); } catch { return null; }
+}
+
 export async function loadCloudSave() {
   const player = await getPlayer();
   if (!player) return null;
   try {
     const data = await player.getData(['library-game']);
     const saved = data?.['library-game'] ?? null;
-    lastCloudData = saved;
+    lastCloudData = serializeData(saved);
     return saved;
   } catch (error) {
     console.warn('[Yandex SDK] cloud load failed:', error);
@@ -79,18 +81,9 @@ export async function loadCloudSave() {
   }
 }
 
-function serializeData(data) {
-  try {
-    return JSON.stringify(data);
-  } catch {
-    return null;
-  }
-}
-
 export async function saveCloud(data, flush = true) {
   const serialized = serializeData(data);
   if (serialized !== null && serialized === lastCloudData) return true;
-
   const player = await getPlayer();
   if (!player) return false;
   try {
