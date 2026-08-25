@@ -1,5 +1,4 @@
 import { Game } from './game/Game.js';
-import { initYandexSDK } from './platform/YandexSDK.js';
 
 const app = document.getElementById('app');
 
@@ -12,11 +11,28 @@ document.title = 'Библиотека: Книжный порядок';
 const loadingText = document.querySelector('[data-i18n="loading"]');
 if (loadingText) loadingText.textContent = 'Библиотека: Книжный порядок';
 
-async function bootstrap() {
-  // Initialize the platform before constructing the UI so the first render
-  // already uses the locale selected by Yandex Games.
-  await initYandexSDK();
-  new Game({ app });
+function hideLoadingScreen() {
+  const loadingScreen = document.getElementById('loading-screen');
+  if (!loadingScreen) return;
+  loadingScreen.style.opacity = '0';
+  loadingScreen.style.transition = 'opacity 0.25s ease';
+  window.setTimeout(() => loadingScreen.remove(), 250);
 }
 
-void bootstrap();
+function bootstrap() {
+  // Do not block the first render on Yandex SDK/network initialization.
+  // Game initializes the platform in the background after mounting the UI.
+  new Game({ app });
+  hideLoadingScreen();
+}
+
+try {
+  bootstrap();
+} catch (error) {
+  console.error('[Game] bootstrap failed:', error);
+  const loadingScreen = document.getElementById('loading-screen');
+  if (loadingScreen) {
+    const text = loadingScreen.querySelector('.loading-text');
+    if (text) text.textContent = 'Не удалось загрузить игру';
+  }
+}
