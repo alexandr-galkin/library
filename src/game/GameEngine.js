@@ -10,17 +10,20 @@ export class GameEngine {
     if (!app || !state || !stats || !timer || !sound || !levelManager || !theme || !layoutManager) throw new TypeError('GameEngine requires app, state, stats, timer, sound, levelManager, theme and layoutManager');
     this.app = app; this.document = documentRef; this.window = windowRef; this.state = state; this.stats = stats; this.timer = timer; this.sound = sound; this.particles = particles; this.levelManager = levelManager; this.theme = theme; this.layoutManager = layoutManager; this.eventBus = eventBus; this.actions = actions;
     this.renderer = null; this.drag = null; this.history = []; this.completionTimeout = null; this.wrongTimeout = null;
-    this.session = new GameSession({ state, stats, timer, sound, generateLevel: level => this.levelManager.generate(level), onLevelLoaded: level => this.mountLevel(level), onComplete: level => this.finishLevel(level), onFail: () => this.renderer?.showFail() });
+    this.session = new GameSession({ state, stats, timer, sound, generateLevel: level => this.levelManager.generate(level), onLevelLoaded: level => this.mountLevel(level), onComplete: level => this.finishLevel(level), onFail: (level, meta) => this.renderer?.showFail(meta) });
   }
   get level() { return this.session.level; } get score() { return this.stats.totalScore; } get levelScore() { return this.stats.levelScore; } get isPaused() { return this.session.isPaused; } get isTransitioning() { return this.session.transitioning; } get isActive() { return this.session.active; } get isPlaying() { return this.session.isPlaying; }
-  start() { this.sound.init(); return this.session.start(); } retry() { return this.session.retry(); } next() { return this.session.next(); }
+  start() { this.sound.init(); return this.session.start(); }
+  retry() { return this.session.retry(); }
+  next() { return this.session.next(); }
+  revive(extraSeconds = 30) { const revived = this.session.revive(extraSeconds); if (revived) { this.renderer?.hideFail(); this.renderer?.setTimer(this.timer.remaining, this.level?.timeLimit); this.eventBus.emit('game:revived', { extraSeconds }); } return revived; }
   pause() { if (this.session.pause()) { this.drag?.pause(); this.eventBus.emit('game:paused'); return true; } return false; }
   resume() { if (this.session.resume()) { this.drag?.resume(); this.renderer?.hidePauseMenu(); this.eventBus.emit('game:resumed'); return true; } return false; }
   mountLevel(level) {
     this.cleanupLevel(); this.history = []; this.layoutManager.updateShelfCount(level.containers.length);
-    this.renderer = new GameRenderer({ app: this.app, theme: this.theme, documentRef: this.document, actions: { onPause: () => { this.pause(); this.renderer?.showPauseMenu(); }, onUndo: () => this.undoMove(), onRetry: () => this.retry(), onResume: () => this.resume(), onSettings: () => this.actions.onSettings?.(), onMenu: () => this.actions.onMenu?.() } });
+    this.renderer = new GameRenderer({ app: this.app, theme: this.theme, documentRef: this.document, actions: { onPause: () => { this.pause(); this.renderer?.showPauseMenu(); }, onUndo: () => this.undoMove(), onRetry: () => this.retry(), onResume: () => this.resume(), onSettings: () => this.actions.onSettings?.(), onMenu: () => this.actions.onMenu?.(), onRevive: () => this.actions.onRevive?.() } });
     this.drag = new DragController({ getLevel: () => this.level, isBlocked: () => this.isTransitioning || this.isPaused || !this.isPlaying, sound: this.sound, root: this.document, onDrop: (object, container, element) => this.handleDrop(object, container, element), onWrong: element => this.handleWrong(element), eventBus: this.eventBus });
-    this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves); this.renderer.setRule(level.ruleText); this.renderer.renderContainers(level.containers, level.objects); this.eventBus.emit('level:started', level);
+    this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves); this.renderer.setTimer(this.timer.remaining, level.timeLimit); this.renderer.setRule(level.ruleText); this.renderer.renderContainers(level.containers, level.objects); this.eventBus.emit('level:started', level);
   }
   handleDrop(object, target, targetElement) {
     if (!this.isPlaying || this.isTransitioning || this.isPaused || !object || !target) return false;
@@ -41,7 +44,16 @@ export class GameEngine {
     this.renderer.renderContainers(level.containers, level.objects); this.renderer.updateHUD(level.id, level.difficulty, this.score, level.moves); this.sound.playPick(); this.eventBus.emit('game:changed', { type: 'undo', object, source, target, moves: level.moves }); return true;
   }
   isSolved(level) { return level.containers.every(container => { if (container.items.length === 0) return true; if (container.items.length !== level.capacity) return false; const colors = container.items.map(uid => level.objects.find(object => object.uid === uid)?.color); return colors.every(color => color && color === colors[0]); }); }
-  finishLevel(level) { this.sound.playLevelComplete(); const moveBonus = ScoreCalculator.timeBonus(Math.max(0, 120 - level.moves), true); this.stats.addBonus(moveBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save(); this.particles?.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30); this.actions.onLevelComplete?.(level.id, this.levelScore, moveBonus); this.completionTimeout = null; }
+  finishLevel(level) {
+    this.sound.playLevelComplete();
+    const timeRatio = level.timeLimit ? this.timer.remaining / level.timeLimit : 0;
+    const moveBonus = ScoreCalculator.timeBonus(Math.round(timeRatio * 100), true);
+    const stars = timeRatio >= 0.5 ? 3 : timeRatio >= 0.2 ? 2 : 1;
+    this.stats.addBonus(moveBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
+    this.particles?.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30);
+    this.actions.onLevelComplete?.(level.id, this.levelScore, moveBonus, stars, this.timer.remaining);
+    this.completionTimeout = null;
+  }
   cleanupLevel() { if (this.completionTimeout) this.window.clearTimeout(this.completionTimeout); if (this.wrongTimeout) this.window.clearTimeout(this.wrongTimeout); this.completionTimeout = null; this.wrongTimeout = null; this.drag?.destroy(); this.drag = null; this.renderer?.destroy(); this.renderer = null; }
   destroy() { this.cleanupLevel(); this.session.destroy(); this.eventBus.clear(); this.actions = {}; }
 }

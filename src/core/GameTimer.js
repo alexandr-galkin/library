@@ -29,6 +29,18 @@ export class GameTimer {
     if (this.remaining === 0) this.complete();
   }
 
+  addSeconds(seconds) {
+    if (this.destroyed || this.completed) return false;
+    const extra = Math.max(0, Math.floor(Number(seconds) || 0));
+    if (!extra) return false;
+    this.remaining += extra;
+    this.completed = false;
+    this.paused = false;
+    this.emitTick();
+    if (this.interval === null) this.interval = this.scheduler.setInterval(() => this.tick(), this.intervalMs);
+    return true;
+  }
+
   pause() {
     if (!this.destroyed && this.interval !== null && !this.completed) this.paused = true;
   }
@@ -52,9 +64,7 @@ export class GameTimer {
     this.paused = false;
   }
 
-  emitTick() {
-    this.onTick?.(this.remaining);
-  }
+  emitTick() { this.onTick?.(this.remaining); }
 
   destroy() {
     if (this.destroyed) return;

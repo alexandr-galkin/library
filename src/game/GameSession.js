@@ -17,6 +17,7 @@ export class GameSession {
     this.status = GameStatus.MENU;
     this.transitioning = false;
     this.active = false;
+    this.revived = false;
   }
 
   get isPaused() { return this.status === GameStatus.PAUSED; }
@@ -44,13 +45,13 @@ export class GameSession {
   }
 
   load(levelNumber) {
-    // Generate first. If generation fails, keep the current level and timer untouched.
     const level = this.generateLevel(levelNumber);
     if (!level || typeof level !== 'object') {
       throw new Error(`Level generator returned an invalid level: ${levelNumber}`);
     }
     this.timer.stop();
     this.level = level;
+    this.revived = false;
     this.stats.resetLevel();
     this.status = GameStatus.PLAYING;
     this.onLevelLoaded?.(this.level);
@@ -99,6 +100,15 @@ export class GameSession {
     return true;
   }
 
+  revive(extraSeconds = 30) {
+    if (!this.active || this.status !== GameStatus.FAILED || this.revived || !this.level) return false;
+    this.revived = true;
+    this.status = GameStatus.PLAYING;
+    this.timer.addSeconds(extraSeconds);
+    this.sound.resumeAudio();
+    return true;
+  }
+
   markCompleting() {
     if (!this.isPlaying || this.transitioning) return false;
     this.status = GameStatus.COMPLETING;
@@ -119,7 +129,7 @@ export class GameSession {
     this.status = GameStatus.FAILED;
     this.timer.stop();
     this.sound.pauseAudio();
-    this.onFail?.(this.level);
+    this.onFail?.(this.level, { canRevive: !this.revived });
     return true;
   }
 
@@ -130,6 +140,7 @@ export class GameSession {
     this.active = false;
     this.transitioning = false;
     this.status = GameStatus.MENU;
+    this.revived = false;
   }
 
   destroy() {

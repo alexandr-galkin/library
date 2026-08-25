@@ -25,6 +25,11 @@ export class LevelFactory {
     });
     level.seed = seed;
     level.capacity = config.capacity;
+    level.timeLimit = this.difficultyManager.getTimeLimit({
+      colors: config.colors,
+      shelves: config.shelves,
+      objects: level.objects?.length ?? config.colors * config.capacity,
+    });
     return level;
   }
 }

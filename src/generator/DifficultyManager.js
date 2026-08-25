@@ -22,6 +22,19 @@ export class DifficultyManager {
   static getMaxContainers(difficulty) { return LevelConfig.forDifficulty(difficulty).maxContainers; }
   static getObjectCount(difficulty) { const c = LevelConfig.forDifficulty(difficulty); return c.colors[0] * c.capacity; }
   static getModifierChance() { return {}; }
-  static getTimeLimit() { return null; }
-  static getStarThresholds(difficulty) { return [0, Math.max(1, Math.floor(clampDifficulty(difficulty) / 2))]; }
+
+  /**
+   * Calculate time from the actual generated puzzle shape rather than the
+   * level number. This keeps early levels relaxed while giving larger puzzles
+   * enough time without maintaining a hand-written timer table.
+   */
+  static getTimeLimit({ colors = 3, shelves = 4, objects = 12 } = {}) {
+    const raw = 32 + objects * 1.6 + shelves * 5 + colors * 4;
+    return Math.round(Math.min(210, Math.max(60, raw)));
+  }
+
+  static getStarThresholds(difficulty) {
+    const d = clampDifficulty(difficulty);
+    return [0.2, Math.min(0.45, 0.18 + d * 0.012)];
+  }
 }

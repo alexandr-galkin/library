@@ -11,17 +11,18 @@ import { ParticleSystem } from '../rendering/ParticleSystem.js';
 import { Menu } from '../ui/Menu.js';
 import { Settings } from '../ui/Settings.js';
 import { LevelComplete } from '../ui/LevelComplete.js';
-import { onLocaleChanged } from '../i18n/index.js';
-import { initYandexSDK, markGameReady, loadCloudSave, saveCloud, showFullscreenAd } from '../platform/YandexSDK.js';
+import { onLocaleChanged, t } from '../i18n/index.js';
+import { initYandexSDK, markGameReady, loadCloudSave, saveCloud, showFullscreenAd, showRewardedAd } from '../platform/YandexSDK.js';
 
 export class Game {
   constructor({ app = document.getElementById('app'), storage, documentRef = document, windowRef = globalThis } = {}) {
     if (!app) throw new Error('Game requires an #app element');
     this.app = app; this.document = documentRef; this.window = windowRef; this.storage = storage ?? this.window.localStorage;
     this.state = new GameState(new LocalStorageRepository(this.storage, 'library-game', ['chaosGame_v2'])); this.stats = new GameStats();
-    this.themeManager = new ThemeManager({ documentRef }); this.theme = this.themeManager.current; this.sound = new SoundManager({ windowRef }); this.particles = new ParticleSystem({ documentRef, windowRef }); this.timer = new GameTimer({ onTick: () => {}, onComplete: () => {} });
+    this.themeManager = new ThemeManager({ documentRef }); this.theme = this.themeManager.current; this.sound = new SoundManager({ windowRef }); this.particles = new ParticleSystem({ documentRef, windowRef });
+    this.timer = new GameTimer({ onTick: remaining => this.engine?.renderer?.setTimer(remaining, this.engine?.level?.timeLimit), onComplete: () => this.engine?.session.fail() });
     this.levelManager = new LevelManager({ theme: this.theme }); this.layoutManager = new LayoutManager({ documentRef }); this.layoutCleanup = this.layoutManager.install(); this.themeCleanup = this.theme.install();
-    this.engine = new GameEngine({ app: this.app, documentRef: this.document, windowRef: this.window, state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, particles: this.particles, levelManager: this.levelManager, theme: this.theme, layoutManager: this.layoutManager, actions: { onSettings: () => this.showSettingsFromGame(), onMenu: () => this.showMenu(), onLevelComplete: (level, score, bonus) => this.showLevelComplete(level, score, bonus) } });
+    this.engine = new GameEngine({ app: this.app, documentRef: this.document, windowRef: this.window, state: this.state, stats: this.stats, timer: this.timer, sound: this.sound, particles: this.particles, levelManager: this.levelManager, theme: this.theme, layoutManager: this.layoutManager, actions: { onSettings: () => this.showSettingsFromGame(), onMenu: () => this.showMenu(), onLevelComplete: (level, score, bonus, stars, remaining) => this.showLevelComplete(level, score, bonus, stars, remaining), onRevive: () => this.reviveAfterAd() } });
     this.visibilityHandler = () => this.handleVisibilityChange(); this.yandexPauseHandler = () => this.sound.pauseAudio(); this.yandexResumeHandler = () => this.sound.resumeAudio();
     this.menu = new Menu({ getState: () => this.state.data, onPlay: () => this.startGame(), onSettings: () => this.showSettings() });
     this.settings = new Settings({ getState: () => this.state.data, sound: this.sound, onSettingChanged: (key, value) => this.updateSetting(key, value), onBack: fromGame => fromGame ? this.closeGameSettings() : this.showMenu() });
@@ -33,21 +34,14 @@ export class Game {
   get score() { return this.stats.totalScore; } get levelScore() { return this.stats.levelScore; } get currentLevel() { return this.engine.level?.id ?? 0; } get isPaused() { return this.engine.isPaused; } get isTransitioning() { return this.engine.isTransitioning; } get isInGame() { return this.engine.isActive; }
   applySettings() { const settings = this.state.data.settings; this.sound.enabled = settings.sound; this.document.body.classList.toggle('reduced-motion', settings.reduced); }
   updateSetting(key, value) { if (!(key in this.state.data.settings) || typeof value !== 'boolean') return; this.state.data.settings[key] = value; this.state.save(); void this.syncCloud(false); this.applySettings(); if (key === 'sound' && value) { this.sound.init(); this.sound.playPick(); } }
-  async initPlatform() {
-    await initYandexSDK();
-    const cloud = await loadCloudSave();
-    if (cloud) {
-      const local = this.state.data; const merged = this.state.validate(cloud);
-      if (merged.currentLevel >= local.currentLevel || merged.totalScore >= local.totalScore || merged.bestScore >= local.bestScore) { this.state.data = merged; this.applySettings(); this.menu.render(); }
-    }
-    await markGameReady();
-  }
+  async initPlatform() { await initYandexSDK(); const cloud = await loadCloudSave(); if (cloud) { const local = this.state.data; const merged = this.state.validate(cloud); if (merged.currentLevel >= local.currentLevel || merged.totalScore >= local.totalScore || merged.bestScore >= local.bestScore) { this.state.data = merged; this.applySettings(); this.menu.render(); } } await markGameReady(); }
   async syncCloud(flush = true) { await this.platformReady; return saveCloud(this.state.data, flush); }
   handleVisibilityChange() { if (this.document.hidden && this.engine.isActive && !this.engine.isTransitioning && !this.engine.isPaused) { void this.syncCloud(false); this.pauseGame(); this.engine.renderer?.showPauseMenu(); } }
   pauseGame() { return this.engine.pause(); } resumeGame() { return this.engine.resume(); }
   startGame() { if (this.engine.isTransitioning) return; this.sound.init(); this.menu.hide(); this.settings.hide(); try { this.engine.start(); } catch (error) { console.error('Failed to start game:', error); this.showMenu(); } }
   retryLevel() { return this.engine.retry(); } nextLevel() { return this.engine.next(); }
-  async showLevelComplete(level, score, bonus) { await this.syncCloud(true); this.menu.render(); this.levelComplete.show(level, score, bonus); await showFullscreenAd(); }
+  async reviveAfterAd() { const button = this.engine.renderer?.elements?.failOverlay?.querySelector('[data-action="revive"]'); if (button) { button.disabled = true; button.textContent = `📺 ${t('overlays.adLoading')}`; } const rewarded = await showRewardedAd(); if (rewarded) this.engine.revive(30); else if (button) { button.disabled = false; button.textContent = `📺 ${t('overlays.revive')}`; } }
+  async showLevelComplete(level, score, bonus, stars, remaining) { await this.syncCloud(true); this.menu.render(); this.levelComplete.show(level, score, bonus, stars, remaining); await showFullscreenAd(); }
   showMenu() { void this.syncCloud(true); this.engine.session.stop(); this.engine.cleanupLevel(); this.menu.render(); this.menu.show(); this.settings.hide(); }
   showSettings() { this.menu.hide(); this.settings.fromGame = false; this.settings.render(); this.settings.show(); }
   showSettingsFromGame() { this.pauseGame(); this.settings.fromGame = true; this.settings.render(); this.settings.show(); }
