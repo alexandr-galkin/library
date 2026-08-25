@@ -47,11 +47,11 @@ export class GameEngine {
   finishLevel(level) {
     this.sound.playLevelComplete();
     const timeRatio = level.timeLimit ? this.timer.remaining / level.timeLimit : 0;
-    const moveBonus = ScoreCalculator.timeBonus(Math.round(timeRatio * 100), true);
+    const timeBonus = ScoreCalculator.timeBonus(this.timer.remaining, true);
     const stars = timeRatio >= 0.5 ? 3 : timeRatio >= 0.2 ? 2 : 1;
-    this.stats.addBonus(moveBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
+    this.stats.addBonus(timeBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
     this.particles?.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30);
-    this.actions.onLevelComplete?.(level.id, this.levelScore, moveBonus, stars, this.timer.remaining);
+    this.actions.onLevelComplete?.(level.id, this.levelScore, timeBonus, stars, this.timer.remaining);
     this.completionTimeout = null;
   }
   cleanupLevel() { if (this.completionTimeout) this.window.clearTimeout(this.completionTimeout); if (this.wrongTimeout) this.window.clearTimeout(this.wrongTimeout); this.completionTimeout = null; this.wrongTimeout = null; this.drag?.destroy(); this.drag = null; this.renderer?.destroy(); this.renderer = null; }
