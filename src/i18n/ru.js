@@ -1,5 +1,5 @@
 export default {
-  game: { title: 'РАЗБЕРИ ХАОС', subtitle: 'Библиотека', description: 'Разложи книги по полкам.<br>Порядок — это сила.', play: 'ИГРАТЬ', settings: 'Настройки', level: 'Уровень', record: 'Рекорд', totalScore: 'Всего очков', hint: '💡 Перетаскивай книги на полки' },
+  game: { title: 'БИБЛИОТЕКА: КНИЖНЫЙ ПОРЯДОК', subtitle: '', description: 'Разложи книги по полкам.<br>Порядок — это сила.', play: 'ИГРАТЬ', settings: 'Настройки', level: 'Уровень', record: 'Рекорд', totalScore: 'Всего очков', hint: '💡 Перетаскивай книги на полки' },
   hud: { level: 'УРОВЕНЬ', difficulty: 'СЛОЖНОСТЬ', moves: 'ХОДЫ', score: 'ОЧКИ', undo: 'Назад', menu: 'Меню', topBook: 'Берём только верхнюю книгу', move: 'ХОД', library: 'Библиотека' },
   rules: { sortByColor: 'СОБЕРИ КАЖДЫЙ ЦВЕТ НА ОДНОЙ ПОЛКЕ' },
   overlays: { failTitle: 'НЕТ ХОДОВ', failText: 'Откати решение или начни уровень заново', retry: 'НАЧАТЬ ЗАНОВО', menu: 'В МЕНЮ', pauseTitle: '⏸ ПАУЗА', pauseText: 'Головоломка приостановлена', resume: 'ПРОДОЛЖИТЬ', settings: 'НАСТРОЙКИ' },
