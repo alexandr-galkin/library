@@ -69,7 +69,7 @@ export class GameRenderer {
   }
   showPopup(x, y, text) { const element = this.document.createElement("div"); element.className = "score-popup"; element.textContent = text; element.style.left = `${x}px`; element.style.top = `${y}px`; this.app.append(element); const timeout = this.document.defaultView?.setTimeout?.(() => { this.timeouts.delete(timeout); element.remove(); }, 700) ?? setTimeout(() => element.remove(), 700); this.timeouts.add(timeout); }
   hideOverlay(overlay) { overlay?.classList.remove("active"); }
-  showFail({ canRevive = false } = {}) { const revive = this.elements.failOverlay.querySelector('[data-action="revive"]'); if (revive) revive.style.display = canRevive ? "flex" : "none"; this.elements.failOverlay.classList.add("active"); }
+  showFail({ canRevive = false } = {}) { const revive = this.elements.failOverlay.querySelector('[data-action="revive"]'); if (revive) revive.hidden = !canRevive; this.elements.failOverlay.classList.add("active"); }
   hideFail() { this.hideOverlay(this.elements.failOverlay); }
   showPauseMenu() { this.elements.pauseOverlay.classList.add("active"); }
   hidePauseMenu() { this.hideOverlay(this.elements.pauseOverlay); }
