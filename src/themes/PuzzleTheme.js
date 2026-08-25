@@ -1,14 +1,40 @@
-import { createBookSVG, BOOK_COLORS, BOOK_SIZES, BOOK_GENRES, BOOK_SYMBOLS, BOOK_THICKNESS } from './library/BookAssets.js';
+import {
+  createBookSVG,
+  BOOK_COLORS,
+  BOOK_SIZES,
+  BOOK_GENRES,
+  BOOK_SYMBOLS,
+  BOOK_THICKNESS,
+} from "./library/BookAssets.js";
 
-const STYLE_ID = 'library-puzzle-theme';
+const STYLE_ID = "library-puzzle-theme";
 
 /** Visual-only library theme. It deliberately contains no puzzle geometry. */
 export class PuzzleTheme {
-  constructor({ documentRef = document } = {}) { this.document = documentRef; this.name = 'library'; this.displayName = 'Библиотека'; this.description = 'Разложи книги по полкам'; this.style = null; }
+  constructor({ documentRef = document } = {}) {
+    this.document = documentRef;
+    this.name = "library";
+    this.displayName = "Библиотека";
+    this.description = "Разложи книги по полкам";
+    this.style = null;
+  }
   /** Install theme colors/effects and return cleanup. */
-  install() { const existing = this.document.getElementById(STYLE_ID); if (existing) { this.style = existing; return () => {}; } const style = this.document.createElement('style'); style.id = STYLE_ID; style.textContent = this.buildCSS(); this.document.head.append(style); this.style = style; return () => this.destroy(); }
+  install() {
+    const existing = this.document.getElementById(STYLE_ID);
+    if (existing) {
+      this.style = existing;
+      return () => {};
+    }
+    const style = this.document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = this.buildCSS();
+    this.document.head.append(style);
+    this.style = style;
+    return () => this.destroy();
+  }
   /** Build visual styles without defining puzzle layout. */
-  buildCSS() { return `
+  buildCSS() {
+    return `
       :root { --paper:#f1e6cf; --ink:#2b2118; --wood:#4b2b19; --gold:#b7965c; --book-shadow:rgba(0,0,0,.58); }
       body { background:#15100c; color:var(--paper); font-family:Georgia,'Times New Roman',serif; }
       .library-bg { position:fixed; inset:0; z-index:0; background:#21150e; overflow:hidden; }
@@ -47,7 +73,7 @@ export class PuzzleTheme {
       .menu-btn { min-width:210px; min-height:44px; padding:0 22px; font-size:.82rem; }
       .menu-btn-primary, .level-complete-card button { background:linear-gradient(180deg,#795033,#4d2d1b); color:#f3e5c8; border-color:rgba(205,166,101,.65); }
       .menu-btn-secondary { background:linear-gradient(180deg,rgba(61,37,22,.98),rgba(34,20,12,.98)); color:#cdb991; }
-      .rule-banner { top:42px; background:#eee2c9; color:var(--ink); border:1px solid #bba277; border-radius:2px; box-shadow:0 12px 30px rgba(0,0,0,.45); padding:10px 25px; }
+      .rule-banner { top:72px; background:#eee2c9; color:var(--ink); border:1px solid #bba277; border-radius:2px; box-shadow:0 12px 30px rgba(0,0,0,.45); padding:10px 25px; }
       .rule-banner::before { content:'LIBRARY • SORTING RULE'; display:block; font:600 .55rem Georgia,serif; letter-spacing:3px; color:#8a7048; margin-bottom:3px; }
       .score-popup { color:#f0d49b; text-shadow:0 3px 10px #000; font-family:Georgia,serif; pointer-events:none; }
       .shelf-container { background:linear-gradient(180deg,#603b23,#392014); border:1px solid rgba(193,157,100,.5); border-radius:5px; box-shadow:inset 0 2px rgba(255,225,176,.1),inset 0 -25px 30px rgba(0,0,0,.3),0 14px 30px rgba(0,0,0,.45); }
@@ -71,9 +97,56 @@ export class PuzzleTheme {
       @media (prefers-reduced-motion: reduce) {
         .menu-button, .menu-btn, .level-complete-card button, .book-item { transition:none !important; animation:none !important; }
       }
-    `; }
-  renderBackground(container) { const colors=['#7b302e','#355879','#3f6246','#a67b32','#67455f','#68442b','#35312b','#c4b79a']; const books=count=>Array.from({length:count},(_,index)=>`<span style="height:${62+(index%4)*7}%;background:${colors[index%colors.length]}"></span>`).join(''); container.innerHTML=`<div class="library-architecture"><div class="back-wall"></div><div class="bookcase left"><div class="case-top"></div><div class="case-books one">${books(14)}</div><div class="case-books two">${books(16)}</div><div class="case-books three">${books(13)}</div><div class="case-books four">${books(15)}</div><div class="case-books five">${books(12)}</div><div class="case-shelf s1"></div><div class="case-shelf s2"></div><div class="case-shelf s3"></div><div class="case-shelf s4"></div></div><div class="bookcase right"><div class="case-top"></div><div class="case-books one">${books(13)}</div><div class="case-books two">${books(15)}</div><div class="case-books three">${books(14)}</div><div class="case-books four">${books(16)}</div><div class="case-books five">${books(13)}</div><div class="case-shelf s1"></div><div class="case-shelf s2"></div><div class="case-shelf s3"></div><div class="case-shelf s4"></div></div><div class="arch-window"><div class="moon"></div></div><div class="ceiling-lamp"></div><div class="desk"></div></div><div class="library-floor"></div>`; }
-  renderBook(book) { const element=this.document.createElement('div'); element.className='book-item'; element.dataset.uid=book.uid; element.innerHTML=createBookSVG(book); element.setAttribute('aria-label',`Книга ${book.color} ${book.size}`); return element; }
-  getBookLabels() { return { color:Object.fromEntries(Object.entries(BOOK_COLORS).map(([key,value])=>[key,value.name])), size:Object.fromEntries(Object.entries(BOOK_SIZES).map(([key,value])=>[key,value.name])), genre:Object.fromEntries(Object.entries(BOOK_GENRES).map(([key,value])=>[key,value.name])), symbol:Object.fromEntries(Object.entries(BOOK_SYMBOLS).map(([key,value])=>[key,value.name])), thickness:Object.fromEntries(Object.entries(BOOK_THICKNESS).map(([key,value])=>[key,value.name])) }; }
-  destroy() { this.style?.remove(); this.style=null; }
+    `;
+  }
+  renderBackground(container) {
+    const colors = [
+      "#7b302e",
+      "#355879",
+      "#3f6246",
+      "#a67b32",
+      "#67455f",
+      "#68442b",
+      "#35312b",
+      "#c4b79a",
+    ];
+    const books = (count) =>
+      Array.from(
+        { length: count },
+        (_, index) =>
+          `<span style="height:${62 + (index % 4) * 7}%;background:${colors[index % colors.length]}"></span>`,
+      ).join("");
+    container.innerHTML = `<div class="library-architecture"><div class="back-wall"></div><div class="bookcase left"><div class="case-top"></div><div class="case-books one">${books(14)}</div><div class="case-books two">${books(16)}</div><div class="case-books three">${books(13)}</div><div class="case-books four">${books(15)}</div><div class="case-books five">${books(12)}</div><div class="case-shelf s1"></div><div class="case-shelf s2"></div><div class="case-shelf s3"></div><div class="case-shelf s4"></div></div><div class="bookcase right"><div class="case-top"></div><div class="case-books one">${books(13)}</div><div class="case-books two">${books(15)}</div><div class="case-books three">${books(14)}</div><div class="case-books four">${books(16)}</div><div class="case-books five">${books(13)}</div><div class="case-shelf s1"></div><div class="case-shelf s2"></div><div class="case-shelf s3"></div><div class="case-shelf s4"></div></div><div class="arch-window"><div class="moon"></div></div><div class="ceiling-lamp"></div><div class="desk"></div></div><div class="library-floor"></div>`;
+  }
+  renderBook(book) {
+    const element = this.document.createElement("div");
+    element.className = "book-item";
+    element.dataset.uid = book.uid;
+    element.innerHTML = createBookSVG(book);
+    element.setAttribute("aria-label", `Книга ${book.color} ${book.size}`);
+    return element;
+  }
+  getBookLabels() {
+    return {
+      color: Object.fromEntries(
+        Object.entries(BOOK_COLORS).map(([key, value]) => [key, value.name]),
+      ),
+      size: Object.fromEntries(
+        Object.entries(BOOK_SIZES).map(([key, value]) => [key, value.name]),
+      ),
+      genre: Object.fromEntries(
+        Object.entries(BOOK_GENRES).map(([key, value]) => [key, value.name]),
+      ),
+      symbol: Object.fromEntries(
+        Object.entries(BOOK_SYMBOLS).map(([key, value]) => [key, value.name]),
+      ),
+      thickness: Object.fromEntries(
+        Object.entries(BOOK_THICKNESS).map(([key, value]) => [key, value.name]),
+      ),
+    };
+  }
+  destroy() {
+    this.style?.remove();
+    this.style = null;
+  }
 }
