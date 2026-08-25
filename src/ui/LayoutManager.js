@@ -37,7 +37,7 @@ export class LayoutManager {
     return () => this.destroy();
   }
 
-  calculateLayout(windowWidth, windowHeight, shelfCount = this.shelfCount) {
+   calculateLayout(windowWidth, windowHeight, shelfCount = this.shelfCount) {
     const width = Math.max(1, Number(windowWidth) || 1);
     const height = Math.max(1, Number(windowHeight) || 1);
     const count = Math.max(1, Number(shelfCount) || 1);
@@ -55,23 +55,40 @@ export class LayoutManager {
     const gameWidth = Math.min(830, Math.max(1, width - horizontalMargin * 2));
     const gameHeight = Math.min(640, Math.max(1, height - verticalMargin * 2));
     const scaleFactor = Math.min(gameWidth / 830, gameHeight / 640);
-    const bookWidth = Math.max(isMobile ? 34 : 52, Math.round(72 * scaleFactor));
-    const bookHeight = Math.max(isMobile ? 50 : 75, Math.round(104 * scaleFactor));
+    const bookWidth = Math.max(
+      isMobile ? 34 : 52,
+      Math.round(72 * scaleFactor),
+    );
+    const bookHeight = Math.max(
+      isMobile ? 50 : 75,
+      Math.round(104 * scaleFactor),
+    );
     const gap = isLandscape && isMobile ? 6 : isMobile ? 8 : 14;
     const usableHeight = Math.max(1, gameHeight - (isMobile ? 24 : 40));
     const shelfHeight = Math.max(
+      200,
       bookHeight + (isMobile ? 34 : 80),
-      Math.min(isMobile ? (isLandscape ? 330 : 210) : 460, (usableHeight - gap * Math.max(0, rows - 1)) / rows),
+      Math.min(
+        isMobile ? (isLandscape ? 330 : 210) : 460,
+        (usableHeight - gap * Math.max(0, rows - 1)) / rows,
+      ),
     );
     const shelfContentHeight = Math.max(1, shelfHeight - (isMobile ? 18 : 25));
     return {
-      columns, rows, gameWidth, gameHeight, bookWidth, bookHeight,
+      columns,
+      rows,
+      gameWidth,
+      gameHeight,
+      bookWidth,
+      bookHeight,
       shelfHeight: Math.round(shelfHeight),
       shelfContentHeight: Math.round(shelfContentHeight),
       shelfGap: gap,
       bookStackOffset: Math.round(bookHeight * 0.28),
       bookLift: Math.max(4, Math.round(10 * scaleFactor)),
-      scaleFactor, isMobile, isLandscape,
+      scaleFactor,
+      isMobile,
+      isLandscape,
     };
   }
 
