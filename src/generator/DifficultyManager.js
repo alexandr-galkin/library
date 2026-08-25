@@ -25,12 +25,12 @@ export class DifficultyManager {
 
   /**
    * Calculate time from the actual generated puzzle shape rather than the
-   * level number. This keeps early levels relaxed while giving larger puzzles
-   * enough time without maintaining a hand-written timer table.
+   * level number. The timer is intentionally tighter: most solved levels
+   * should finish with a small buffer instead of leaving a minute or more.
    */
   static getTimeLimit({ colors = 3, shelves = 4, objects = 12 } = {}) {
-    const raw = 32 + objects * 1.6 + shelves * 5 + colors * 4;
-    return Math.round(Math.min(210, Math.max(60, raw)));
+    const raw = 28 + objects * 1.35 + shelves * 4.5 + colors * 3.5;
+    return Math.round(Math.min(120, Math.max(55, raw)));
   }
 
   static getStarThresholds(difficulty) {
