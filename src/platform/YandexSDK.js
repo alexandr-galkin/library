@@ -1,8 +1,10 @@
 import { setLocaleFromPlatform } from '../i18n/index.js';
 
 let sdkPromise = null;
+let sdkInitPromise = null;
 let sdk = null;
 let playerPromise = null;
+let lastCloudData = null;
 
 function loadSDK() {
   if (sdkPromise) return sdkPromise;
@@ -20,17 +22,25 @@ function loadSDK() {
 }
 
 export async function initYandexSDK() {
-  const YaGames = await loadSDK();
-  if (!YaGames?.init) return null;
-  try {
-    sdk = await YaGames.init();
-    applyPlatformLocale(sdk);
-    setupPlatformEvents(sdk);
-    return sdk;
-  } catch (error) {
-    console.warn('[Yandex SDK] init failed:', error);
-    return null;
-  }
+  if (sdk) return sdk;
+  if (sdkInitPromise) return sdkInitPromise;
+
+  sdkInitPromise = (async () => {
+    const YaGames = await loadSDK();
+    if (!YaGames?.init) return null;
+    try {
+      sdk = await YaGames.init();
+      applyPlatformLocale(sdk);
+      setupPlatformEvents(sdk);
+      return sdk;
+    } catch (error) {
+      console.warn('[Yandex SDK] init failed:', error);
+      sdkInitPromise = null;
+      return null;
+    }
+  })();
+
+  return sdkInitPromise;
 }
 
 function applyPlatformLocale(ysdk) {
@@ -60,18 +70,32 @@ export async function loadCloudSave() {
   if (!player) return null;
   try {
     const data = await player.getData(['library-game']);
-    return data?.['library-game'] ?? null;
+    const saved = data?.['library-game'] ?? null;
+    lastCloudData = saved;
+    return saved;
   } catch (error) {
     console.warn('[Yandex SDK] cloud load failed:', error);
     return null;
   }
 }
 
+function serializeData(data) {
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return null;
+  }
+}
+
 export async function saveCloud(data, flush = true) {
+  const serialized = serializeData(data);
+  if (serialized !== null && serialized === lastCloudData) return true;
+
   const player = await getPlayer();
   if (!player) return false;
   try {
     await player.setData({ 'library-game': data }, flush);
+    lastCloudData = serialized;
     return true;
   } catch (error) {
     console.warn('[Yandex SDK] cloud save failed:', error);
@@ -81,6 +105,7 @@ export async function saveCloud(data, flush = true) {
 
 export function resetYandexPlayer() {
   playerPromise = null;
+  lastCloudData = null;
 }
 
 function setupPlatformEvents(ysdk) {
