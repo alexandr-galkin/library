@@ -32,7 +32,7 @@ export class GameRenderer {
     this.app.append(hud);
   }
   buildRuleBanner() {
-    const banner = this.document.createElement("div"); banner.className = "rule-banner"; const title = this.document.createElement("h2"); title.id = "rule-text"; const subtitle = this.document.createElement("div"); subtitle.className = "sub"; subtitle.id = "rule-sub"; banner.append(title, subtitle); this.elements.ruleText = title; this.elements.ruleSub = subtitle; this.app.append(banner);
+    const banner = this.document.createElement("div"); banner.className = "rule-banner"; const title = this.document.createElement("h2"); title.id = "rule-text"; const subtitle = this.document.createElement("div"); subtitle.className = "sub"; subtitle.id = "rule-sub"; banner.append(title, subtitle); this.elements.ruleBanner = banner; this.elements.ruleText = title; this.elements.ruleSub = subtitle; this.app.append(banner);
   }
   buildGameZones() {
     this.elements.objectsZone = this.document.createElement("div"); this.elements.objectsZone.className = "objects-zone"; this.elements.objectsZone.hidden = true;
