@@ -33,33 +33,38 @@ export class LayoutManager {
     let columns;
     if (!isMobile) columns = count;
     else if (isLandscape) columns = Math.min(5, count);
-    else if (isSmallMobile) columns = Math.min(2, count);
+    else if (isSmallMobile) columns = Math.min(count > 6 ? 3 : 2, count);
     else columns = Math.min(3, count);
     const rows = Math.max(1, Math.ceil(count / columns));
     const horizontalMargin = isMobile ? 12 : 24;
     const verticalMargin = isLandscape && isMobile ? 12 : 24;
-    const gameWidth = Math.min(830, Math.max(1, width - horizontalMargin * 2));
-    const gameHeight = Math.min(640, Math.max(1, height - verticalMargin * 2));
+    const baseGameHeight = Math.min(640, Math.max(1, height - verticalMargin * 2));
+    const gameHeight = baseGameHeight;
+    const gameWidth = Math.min(830, Math.max(1, width - horizontalMargin * 2), isMobile ? 830 : baseGameHeight * 2);
     const scaleFactor = Math.min(gameWidth / 830, gameHeight / 640);
-    const bookWidth = Math.max(
-      isMobile ? 34 : 52,
-      Math.round(72 * scaleFactor),
-    );
-    const bookHeight = Math.max(
+    const gap = isLandscape && isMobile ? 6 : isMobile ? 8 : 14;
+    const usableHeight = Math.max(1, gameHeight - (isMobile ? 24 : 40));
+    const availableShelfHeight = Math.max(1, (usableHeight - gap * Math.max(0, rows - 1)) / rows);
+    const maxShelfHeight = isMobile ? (isLandscape ? 330 : 210) : 460;
+    const shelfHeight = Math.min(maxShelfHeight, availableShelfHeight);
+    const shelfContentHeight = Math.max(1, shelfHeight - (isMobile ? 18 : 25));
+    const stackOverlapRatio = isMobile ? 0.4 : 0.28;
+    const stackFactor = 4 - stackOverlapRatio * 3;
+    const maxBookHeightForShelf = Math.max(1, Math.floor(shelfContentHeight / stackFactor));
+    const baseBookHeight = Math.max(
       isMobile ? 50 : 75,
       Math.round(104 * scaleFactor),
     );
-    const gap = isLandscape && isMobile ? 6 : isMobile ? 8 : 14;
-    const usableHeight = Math.max(1, gameHeight - (isMobile ? 24 : 40));
-    const shelfHeight = Math.max(
-      200,
-      bookHeight + (isMobile ? 34 : 80),
-      Math.min(
-        isMobile ? (isLandscape ? 330 : 210) : 460,
-        (usableHeight - gap * Math.max(0, rows - 1)) / rows,
-      ),
+    const bookHeight = Math.min(baseBookHeight, maxBookHeightForShelf);
+    const baseBookWidth = Math.max(
+      isMobile ? 34 : 52,
+      Math.round(72 * scaleFactor),
     );
-    const shelfContentHeight = Math.max(1, shelfHeight - (isMobile ? 18 : 25));
+    const bookWidth = Math.min(baseBookWidth, Math.max(1, Math.round(bookHeight * (72 / 104))));
+    const roundedStackOffset = Math.round(bookHeight * stackOverlapRatio);
+    const bookStackOffset = bookHeight * 4 - roundedStackOffset * 3 <= shelfContentHeight
+      ? roundedStackOffset
+      : Math.ceil(bookHeight * stackOverlapRatio);
     return {
       columns,
       rows,
@@ -70,7 +75,7 @@ export class LayoutManager {
       shelfHeight: Math.round(shelfHeight),
       shelfContentHeight: Math.round(shelfContentHeight),
       shelfGap: gap,
-      bookStackOffset: Math.round(bookHeight * 0.28),
+      bookStackOffset,
       bookLift: Math.max(4, Math.round(10 * scaleFactor)),
       scaleFactor,
       isMobile,
