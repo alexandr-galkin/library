@@ -1,7 +1,7 @@
 {
   "name": "library-book-order",
   "version": "1.0.0",
-  "description": "Color sorting puzzle game set in a library",
+  "description": "Library: Book Order - book-sorting puzzle game set in a library",
   "type": "module",
   "scripts": {
     "dev": "vite",

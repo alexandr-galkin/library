@@ -3,17 +3,35 @@ import en from './en.js';
 
 const locales = { ru, en };
 const STORAGE_KEY = 'library-locale';
+const DEFAULT_LOCALE = 'ru';
 
 function normalizeLocale(locale) {
   const language = String(locale ?? '').toLowerCase().split('-')[0];
   return locales[language] ? language : null;
 }
 
+function readSavedLocale() {
+  try {
+    const saved = globalThis.localStorage?.getItem(STORAGE_KEY);
+    return saved && locales[saved] ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeSavedLocale(locale) {
+  try {
+    globalThis.localStorage?.setItem(STORAGE_KEY, locale);
+  } catch {
+    // Storage may be unavailable in embedded/private contexts.
+  }
+}
+
 function detectLocale() {
-  const saved = globalThis.localStorage?.getItem(STORAGE_KEY);
-  if (saved && locales[saved]) return saved;
-  const language = normalizeLocale(globalThis.navigator?.language ?? 'en');
-  return language ?? 'en';
+  const saved = readSavedLocale();
+  if (saved) return saved;
+  const language = normalizeLocale(globalThis.navigator?.language);
+  return language ?? DEFAULT_LOCALE;
 }
 
 let currentLocale = detectLocale();
@@ -23,7 +41,7 @@ export function setLocale(locale) {
   const normalized = normalizeLocale(locale);
   if (!normalized || normalized === currentLocale) return currentLocale;
   currentLocale = normalized;
-  globalThis.localStorage?.setItem(STORAGE_KEY, normalized);
+  writeSavedLocale(normalized);
   listeners.forEach(listener => listener(currentLocale));
   return currentLocale;
 }
@@ -33,10 +51,9 @@ export function setLocale(locale) {
  * A locale explicitly selected by the player is kept and has priority.
  */
 export function setLocaleFromPlatform(locale) {
-  const saved = globalThis.localStorage?.getItem(STORAGE_KEY);
-  if (saved && locales[saved]) return currentLocale;
-  const normalized = normalizeLocale(locale);
-  if (!normalized || normalized === currentLocale) return currentLocale;
+  if (readSavedLocale()) return currentLocale;
+  const normalized = normalizeLocale(locale) ?? DEFAULT_LOCALE;
+  if (normalized === currentLocale) return currentLocale;
   currentLocale = normalized;
   listeners.forEach(listener => listener(currentLocale));
   return currentLocale;

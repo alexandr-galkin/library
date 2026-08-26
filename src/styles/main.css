@@ -83,6 +83,7 @@ canvas#particles {
 
 .loading-content {
   text-align: center;
+  width: min(100% - 32px, 420px);
 }
 
 .loading-books {
@@ -95,6 +96,15 @@ canvas#particles {
   font-size: 1.2rem;
   color: var(--gold);
   font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: break-word;
+}
+
+.loading-status {
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--text2);
+  font-weight: 500;
 }
 
 @keyframes loadingBounce {
@@ -280,12 +290,14 @@ canvas#particles {
 
 .logo-text {
   text-align: left;
+  min-width: 0;
 }
 
 .menu-title {
   font-size: 2rem;
   font-weight: 900;
-  letter-spacing: 1px;
+  letter-spacing: 0;
+  line-height: 1.08;
   background: linear-gradient(
     135deg,
     #e8d48b 0%,
@@ -297,6 +309,7 @@ canvas#particles {
   background-clip: text;
   text-shadow: none;
   margin: 0;
+  overflow-wrap: break-word;
 }
 
 .menu-subtitle {
@@ -1174,9 +1187,11 @@ body {
   content: attr(data-kicker);
   display: block;
   font: 600 0.55rem Georgia, serif;
-  letter-spacing: 3px;
+  letter-spacing: 0;
+  line-height: 1.25;
   color: #8a7048;
   margin-bottom: 3px;
+  overflow-wrap: break-word;
 }
 
 .score-popup {
@@ -1633,8 +1648,9 @@ body {
   margin-bottom: 8px;
   color: #92754c;
   font: 600 9px/1.2 Georgia, serif;
-  letter-spacing: 3px;
+  letter-spacing: 0;
   text-transform: uppercase;
+  overflow-wrap: break-word;
 }
 
 .complete-title {

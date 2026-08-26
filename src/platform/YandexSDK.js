@@ -15,8 +15,8 @@ function loadSDK() {
   });
   return sdkPromise;
 }
-export async function initYandexSDK() { if (sdk) return sdk; if (sdkInitPromise) return sdkInitPromise; sdkInitPromise = (async () => { const YaGames = await loadSDK(); if (!YaGames?.init) return null; try { sdk = await YaGames.init(); applyPlatformLocale(sdk); setupPlatformEvents(sdk); return sdk; } catch (error) { console.warn('[Yandex SDK] init failed:', error); sdkInitPromise = null; return null; } })(); return sdkInitPromise; }
-function applyPlatformLocale(ysdk) { const lang = ysdk?.environment?.i18n?.lang; if (lang) setLocaleFromPlatform(lang); }
+export async function initYandexSDK() { if (sdk) return sdk; if (sdkInitPromise) return sdkInitPromise; sdkInitPromise = (async () => { const YaGames = await loadSDK(); if (!YaGames?.init) { setLocaleFromPlatform(null); return null; } try { sdk = await YaGames.init(); applyPlatformLocale(sdk); setupPlatformEvents(sdk); return sdk; } catch (error) { console.warn('[Yandex SDK] init failed:', error); sdkInitPromise = null; setLocaleFromPlatform(null); return null; } })(); return sdkInitPromise; }
+function applyPlatformLocale(ysdk) { setLocaleFromPlatform(ysdk?.environment?.i18n?.lang); }
 export async function markGameReady() { const ysdk = sdk ?? await initYandexSDK(); ysdk?.features?.LoadingAPI?.ready?.(); }
 async function getPlayer() { if (playerPromise) return playerPromise; const ysdk = sdk ?? await initYandexSDK(); if (!ysdk?.getPlayer) return null; playerPromise = ysdk.getPlayer().catch(error => { console.warn('[Yandex SDK] player init failed:', error); playerPromise = null; return null; }); return playerPromise; }
 function serializeData(data) { try { return JSON.stringify(data); } catch { return null; } }
