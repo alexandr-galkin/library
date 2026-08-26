@@ -72,7 +72,10 @@ canvas#particles {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-dark);
+  background:
+    linear-gradient(115deg, transparent 0 34%, rgba(239, 216, 143, 0.08) 35% 36%, transparent 37% 100%),
+    repeating-linear-gradient(90deg, rgba(245, 236, 214, 0.03) 0 1px, transparent 1px 78px),
+    linear-gradient(135deg, rgba(10, 25, 27, 0.98), rgba(44, 28, 18, 0.98) 58%, rgba(14, 18, 15, 0.98));
   z-index: 9999;
   opacity: 1;
   transition: opacity 0.3s ease;
@@ -89,7 +92,9 @@ canvas#particles {
 }
 
 .loading-books {
-  font-size: 4rem;
+  font-size: 3.8rem;
+  line-height: 1;
+  filter: drop-shadow(0 12px 20px rgba(0, 0, 0, 0.35));
   animation: loadingBounce 1s ease-in-out infinite;
 }
 
@@ -115,7 +120,7 @@ canvas#particles {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-20px);
+    transform: translateY(-14px);
   }
 }
 
