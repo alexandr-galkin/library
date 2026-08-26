@@ -1,4 +1,6 @@
+import './styles/main.css';
 import { Game } from './game/Game.js';
+import { getLocale, onLocaleChanged, t } from './i18n/index.js';
 
 const app = document.getElementById('app');
 
@@ -6,17 +8,23 @@ if (!app) {
   throw new Error('Application root #app was not found');
 }
 
-// Keep the browser/loading metadata in sync with the published game title.
-document.title = 'Библиотека: Книжный порядок';
-const loadingText = document.querySelector('[data-i18n="loading"]');
-if (loadingText) loadingText.textContent = 'Библиотека: Книжный порядок';
+function syncDocumentLocale() {
+  document.documentElement.lang = getLocale();
+  document.title = t('page.title');
+  const description = document.querySelector('meta[name="description"]');
+  if (description) description.setAttribute('content', t('page.description'));
+  const loadingText = document.querySelector('[data-i18n="loading"]');
+  if (loadingText) loadingText.textContent = t('page.loading');
+}
+
+syncDocumentLocale();
+onLocaleChanged(syncDocumentLocale);
 
 function hideLoadingScreen() {
   const loadingScreen = document.getElementById('loading-screen');
   if (!loadingScreen) return;
-  loadingScreen.style.opacity = '0';
-  loadingScreen.style.transition = 'opacity 0.25s ease';
-  window.setTimeout(() => loadingScreen.remove(), 250);
+  loadingScreen.classList.add('is-hidden');
+  window.setTimeout(() => loadingScreen.remove(), 300);
 }
 
 function bootstrap() {
@@ -33,6 +41,6 @@ try {
   const loadingScreen = document.getElementById('loading-screen');
   if (loadingScreen) {
     const text = loadingScreen.querySelector('.loading-text');
-    if (text) text.textContent = 'Не удалось загрузить игру';
+    if (text) text.textContent = t('page.error');
   }
 }

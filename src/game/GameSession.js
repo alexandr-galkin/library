@@ -73,10 +73,10 @@ export class GameSession {
   next() {
     if (!this.active || this.transitioning || (!this.isPlaying && !this.isCompleting)) return false;
     this.transitioning = true;
-    const nextLevel = this.state.data.currentLevel + 1;
+    const nextLevel = Math.max((this.level?.id ?? this.state.data.currentLevel) + 1, this.state.data.currentLevel);
     try {
       this.load(nextLevel);
-      this.state.data.currentLevel = nextLevel;
+      this.state.data.currentLevel = Math.max(this.state.data.currentLevel, nextLevel);
       this.state.save();
       return true;
     } finally {

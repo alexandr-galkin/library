@@ -24,16 +24,17 @@ export async function loadCloudSave() { const player = await getPlayer(); if (!p
 export async function saveCloud(data, flush = true) { const serialized = serializeData(data); if (serialized !== null && serialized === lastCloudData) return true; const player = await getPlayer(); if (!player) return false; try { await player.setData({ 'library-game': data }, flush); lastCloudData = serialized; return true; } catch (error) { console.warn('[Yandex SDK] cloud save failed:', error); return false; } }
 export function resetYandexPlayer() { playerPromise = null; lastCloudData = null; }
 function setupPlatformEvents(ysdk) { ysdk.on?.('game_api_pause', () => window.dispatchEvent(new Event('yandex-game-pause'))); ysdk.on?.('game_api_resume', () => window.dispatchEvent(new Event('yandex-game-resume'))); ysdk.on?.('account_selection_dialog_opened', () => resetYandexPlayer()); ysdk.on?.('account_selection_dialog_closed', () => resetYandexPlayer()); }
-export function showFullscreenAd() { const ysdk = sdk; if (!ysdk?.adv?.showFullscreenAdv) return Promise.resolve(false); return new Promise((resolve) => { let settled = false; const finish = shown => { if (settled) return; settled = true; resolve(Boolean(shown)); }; try { ysdk.adv.showFullscreenAdv({ callbacks: { onOpen: () => window.dispatchEvent(new Event('yandex-ad-open')), onClose: finish, onError: error => { console.warn('[Yandex SDK] fullscreen ad failed:', error); finish(false); } } }); } catch (error) { console.warn('[Yandex SDK] fullscreen ad failed:', error); finish(false); } }); }
+function dispatchWindowEvent(name) { if (typeof window !== 'undefined') window.dispatchEvent(new Event(name)); }
+export function showFullscreenAd() { const ysdk = sdk; if (!ysdk?.adv?.showFullscreenAdv) return Promise.resolve(false); return new Promise((resolve) => { let settled = false; const finish = shown => { if (settled) return; settled = true; dispatchWindowEvent('yandex-ad-close'); resolve(Boolean(shown)); }; try { ysdk.adv.showFullscreenAdv({ callbacks: { onOpen: () => dispatchWindowEvent('yandex-ad-open'), onClose: finish, onError: error => { console.warn('[Yandex SDK] fullscreen ad failed:', error); finish(false); } } }); } catch (error) { console.warn('[Yandex SDK] fullscreen ad failed:', error); finish(false); } }); }
 export async function showRewardedAd() {
   const ysdk = sdk ?? await initYandexSDK();
   if (!ysdk?.adv?.showRewardedVideo) return false;
   return new Promise(resolve => {
     let rewarded = false; let settled = false;
-    const finish = value => { if (settled) return; settled = true; resolve(value); };
+    const finish = value => { if (settled) return; settled = true; dispatchWindowEvent('yandex-ad-close'); resolve(value); };
     try {
       ysdk.adv.showRewardedVideo({ callbacks: {
-        onOpen: () => window.dispatchEvent(new Event('yandex-ad-open')),
+        onOpen: () => dispatchWindowEvent('yandex-ad-open'),
         onRewarded: () => { rewarded = true; },
         onClose: () => finish(rewarded),
         onError: error => { console.warn('[Yandex SDK] rewarded ad failed:', error); finish(false); },

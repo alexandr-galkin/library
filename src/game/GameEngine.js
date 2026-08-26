@@ -36,7 +36,7 @@ export class GameEngine {
     if (this.isSolved(level) && this.session.markCompleting()) { this.eventBus.emit('level:completed', level); this.completionTimeout = this.window.setTimeout(() => this.session.complete(), 500); }
     return true;
   }
-  handleWrong(element) { if (!element) return; if (this.wrongTimeout) this.window.clearTimeout(this.wrongTimeout); element.classList.remove('shake'); void element.offsetWidth; element.classList.add('shake'); this.wrongTimeout = this.window.setTimeout(() => { element.classList.remove('shake'); this.wrongTimeout = null; }, 400); }
+  handleWrong(element) { if (!element) return; this.stats.addMistake(); this.sound.playWrong(); if (this.wrongTimeout) this.window.clearTimeout(this.wrongTimeout); element.classList.remove('shake'); void element.offsetWidth; element.classList.add('shake'); this.wrongTimeout = this.window.setTimeout(() => { element.classList.remove('shake'); this.wrongTimeout = null; }, 400); }
   undoMove() {
     if (!this.isPlaying || this.isTransitioning || !this.history.length) return false; const level = this.level; if (this.isSolved(level)) return false;
     const move = this.history.pop(); const object = level.objects.find(item => item.uid === move.objectId); const source = level.containers.find(container => container.id === move.sourceId); const target = level.containers.find(container => container.id === move.targetId); if (!object || !source || !target) { this.history.push(move); return false; }
@@ -49,7 +49,7 @@ export class GameEngine {
     const timeRatio = level.timeLimit ? this.timer.remaining / level.timeLimit : 0;
     const timeBonus = ScoreCalculator.timeBonus(this.timer.remaining, true);
     const stars = timeRatio >= 0.5 ? 3 : timeRatio >= 0.2 ? 2 : 1;
-    this.stats.addBonus(timeBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.save();
+    this.stats.addBonus(timeBonus); this.state.data.totalScore = this.score; this.state.data.bestScore = Math.max(this.state.data.bestScore, this.score); this.state.data.currentLevel = Math.max(this.state.data.currentLevel, level.id + 1); this.state.save();
     this.particles?.emit(this.window.innerWidth / 2, this.window.innerHeight / 2, '#e8d48b', 30);
     this.actions.onLevelComplete?.(level.id, this.levelScore, timeBonus, stars, this.timer.remaining);
     this.completionTimeout = null;

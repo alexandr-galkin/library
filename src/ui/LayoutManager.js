@@ -1,13 +1,8 @@
-import { BOOK_SIZES } from '../themes/library/BookAssets.js';
-
-const STYLE_ID = 'library-layout-manager';
-
 /** The single owner of puzzle geometry. */
 export class LayoutManager {
   constructor({ documentRef = document } = {}) {
     this.document = documentRef;
     this.window = documentRef.defaultView ?? globalThis.window;
-    this.style = null;
     this.resizeObserver = null;
     this.resizeHandler = null;
     this.orientationHandler = null;
@@ -16,15 +11,6 @@ export class LayoutManager {
   }
 
   install() {
-    const existing = this.document.getElementById(STYLE_ID);
-    if (existing) this.style = existing;
-    else {
-      const style = this.document.createElement('style');
-      style.id = STYLE_ID;
-      style.textContent = this.buildCSS();
-      this.document.head.append(style);
-      this.style = style;
-    }
     this.updateLayout();
     this.resizeHandler = () => this.updateLayout();
     this.orientationHandler = () => this.scheduleLayoutUpdate();
@@ -121,35 +107,11 @@ export class LayoutManager {
     else setTimeout(() => this.updateLayout(), 100);
   }
 
-  buildCSS() {
-    const book = BOOK_SIZES.medium;
-    return `
-      :root { --game-width:830px; --game-height:640px; --game-padding:20px; --shelf-height:460px; --shelf-gap:14px; --shelf-columns:5; --shelf-rows:1; --book-width:${book.width}px; --book-height:${book.height}px; --shelf-content-height:435px; --book-stack-offset:52px; --book-lift:10px; }
-      #app { position:relative; width:100vw; height:100dvh; min-width:0; min-height:0; overflow:hidden; box-sizing:border-box; padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
-      @supports not (height:100dvh) { #app { height:100vh; } }
-      #app .game-table { position:absolute; left:50%; top:50%; width:var(--game-width); height:var(--game-height); max-width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right)); max-height:calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); transform:translate(-50%,-50%); transform-origin:center center; overflow:hidden; }
-      #app .game-table .containers-zone { position:absolute; left:var(--game-padding); right:var(--game-padding); top:50%; width:auto; height:auto; min-height:var(--shelf-height); margin:0; padding:0; transform:translateY(-50%); display:grid; grid-template-columns:repeat(var(--shelf-columns),minmax(0,1fr)); grid-template-rows:repeat(var(--shelf-rows),var(--shelf-height)); grid-auto-rows:var(--shelf-height); gap:var(--shelf-gap); align-items:stretch; overflow:visible; z-index:20; }
-      #app .game-table .shelf-container { position:relative; box-sizing:border-box; width:100%; height:var(--shelf-height); min-width:0; min-height:var(--shelf-height); margin:0; padding:0; display:flex; flex-direction:column; justify-content:flex-end; overflow:visible; }
-      #app .game-table .shelf-items { position:relative; width:100%; height:var(--shelf-content-height); min-height:var(--shelf-content-height); box-sizing:border-box; display:flex; flex-direction:column; justify-content:flex-end; align-items:center; padding:0 11px 15px; overflow:visible; }
-      /* Vertical stack with a small, consistent overlap: the bottom book is fully visible and upper books remain clearly separated. */
-      #app .game-table .shelf-items > .book-item { position:relative; left:auto; top:auto; width:var(--book-width); height:var(--book-height); min-width:var(--book-width); min-height:var(--book-height); max-width:var(--book-width); max-height:var(--book-height); flex:0 0 var(--book-height); margin:0; transform:translateY(calc(-1 * var(--book-lift))); transform-origin:center bottom; }
-      #app .game-table .shelf-items > .book-item + .book-item { margin-top:calc(-1 * var(--book-stack-offset)); }
-      #app .game-table .shelf-items > .book-item:nth-last-child(1) { z-index:4; } #app .game-table .shelf-items > .book-item:nth-last-child(2) { z-index:3; } #app .game-table .shelf-items > .book-item:nth-last-child(3) { z-index:2; } #app .game-table .shelf-items > .book-item:nth-last-child(4) { z-index:1; }
-      #app .game-table .shelf-items > .book-item .book-art { display:block; width:var(--book-width); height:var(--book-height); max-width:var(--book-width); max-height:var(--book-height); }
-      #app .game-table .book-item.top-book { cursor:grab; } #app .game-table .book-item:not(.top-book) { cursor:default; } #app .game-table .book-item.is-dragging { cursor:grabbing; }
-      #app .game-table .hud-bar { z-index:70; } #app .game-table .rule-banner { z-index:60; } #app .game-table .score-popup { z-index:80; }
-      @media (max-width:767px) { #app .game-table .containers-zone { left:10px; right:10px; } #app .game-table .shelf-items { padding-left:6px; padding-right:6px; padding-bottom:10px; } }
-      @media (orientation:landscape) and (max-width:767px) { #app .game-table .containers-zone { gap:var(--shelf-gap); } #app .game-table .shelf-items { padding-left:4px; padding-right:4px; } }
-      @media (orientation:portrait) and (max-width:767px) { #app .game-table .containers-zone { grid-template-columns:repeat(var(--shelf-columns),minmax(0,1fr)); } }
-      @media (max-height:500px) { #app .game-table { max-height:calc(100dvh - 16px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); } }
-    `;
-  }
-
   destroy() {
     this.resizeObserver?.disconnect(); this.resizeObserver = null;
     if (this.resizeHandler) this.window?.removeEventListener?.('resize', this.resizeHandler);
     if (this.orientationHandler) this.window?.removeEventListener?.('orientationchange', this.orientationHandler);
-    this.resizeHandler = null; this.orientationHandler = null; this.style?.remove(); this.style = null;
+    this.resizeHandler = null; this.orientationHandler = null;
     for (const property of ['--shelf-columns','--shelf-rows','--game-width','--game-height','--shelf-height','--shelf-gap','--book-width','--book-height','--shelf-content-height','--book-stack-offset','--book-lift']) this.document.documentElement.style.removeProperty(property);
   }
 }

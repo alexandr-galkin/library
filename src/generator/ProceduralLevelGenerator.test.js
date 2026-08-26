@@ -3,7 +3,6 @@ import { ProceduralLevelGenerator } from './ProceduralLevelGenerator.js';
 
 const theme = {
   name: 'test',
-  getBookLabels: () => ({ color: { red: 'Красный', blue: 'Синий', green: 'Зелёный' } }),
   getAllBookProperties: () => ({
     colors: ['red', 'blue', 'green', 'yellow', 'purple', 'brown', 'black', 'white'],
     sizes: ['small', 'large'],

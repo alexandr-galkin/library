@@ -1,3 +1,5 @@
+import { t } from '../i18n/index.js';
+
 const CAPACITY = 4;
 const MAX_SHUFFLE_ATTEMPTS = 12;
 
@@ -68,7 +70,7 @@ export class SortPuzzleGenerator {
       type: stack.length === 0 ? 'empty' : 'normal',
       capacity: CAPACITY,
       index,
-      label: stack.length === 0 ? 'СВОБОДНАЯ ПОЛКА' : `ПОЛКА ${index + 1}`,
+      label: stack.length === 0 ? t('level.freeShelf') : t('level.shelf', { number: index + 1 }),
       color: stack[stack.length - 1] ?? null,
       items: [],
     }));
@@ -103,7 +105,7 @@ export class SortPuzzleGenerator {
       containers,
       objects,
       rule: { type: 'sort', field: 'color', op: 'group' },
-      ruleText: 'СОБЕРИ КАЖДЫЙ ЦВЕТ НА ОДНОЙ ПОЛКЕ',
+      ruleText: t('rules.sortByColor'),
       modifiers: [],
       timeLimit: null,
       seed: null,

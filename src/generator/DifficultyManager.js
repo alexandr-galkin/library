@@ -18,11 +18,6 @@ export class DifficultyManager {
     return { colors, shelves, capacity: config.capacity, level };
   }
 
-  static getAvailableFields() { return ['color']; }
-  static getMaxContainers(difficulty) { return LevelConfig.forDifficulty(difficulty).maxContainers; }
-  static getObjectCount(difficulty) { const c = LevelConfig.forDifficulty(difficulty); return c.colors[0] * c.capacity; }
-  static getModifierChance() { return {}; }
-
   /**
    * Calculate time from the actual generated puzzle shape rather than the
    * level number. The timer is intentionally tighter: most solved levels

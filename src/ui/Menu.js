@@ -47,7 +47,7 @@ export class Menu {
             <button class="play-button" id="menu-play"><span class="play-icon">▶</span><span class="play-text">${t('game.play')}</span><span class="play-shine"></span></button>
             <button class="settings-button" id="menu-settings"><span class="settings-icon">⚙</span><span>${t('game.settings')}</span></button>
           </div>
-          <div class="menu-footer"><span class="version">v1.0</span><span class="hint">${t('game.hint')}</span><span class="copyright" style="font-size: 0.7rem; color: #6f6255;">© 2026 GLKN Games</span></div>
+          <div class="menu-footer"><span class="version">v1.0</span><span class="hint">${t('game.hint')}</span><span class="copyright">© 2026 GLKN Games</span></div>
         </div>
       </div>
     `;
@@ -70,14 +70,6 @@ export class Menu {
       this.eventListeners.push({ element: settingsBtn, handler });
     }
 
-    this.animateFloatingBooks();
-  }
-
-  animateFloatingBooks() {
-    this.container.querySelectorAll('.floating-book').forEach((book, index) => {
-      book.style.animation = `floatBook 3s ease-in-out ${index * 0.5}s infinite`;
-      book.style.animationDelay = `${index * 0.7}s`;
-    });
   }
 
   cleanupListeners() {
@@ -86,13 +78,13 @@ export class Menu {
   }
 
   show() {
-    this.container.style.display = 'flex';
+    this.container.classList.add('is-visible');
     requestAnimationFrame(() => this.container.querySelector('.menu-content')?.classList.add('entered'));
   }
 
   hide() {
     this.container.querySelector('.menu-content')?.classList.remove('entered');
-    setTimeout(() => { this.container.style.display = 'none'; }, 300);
+    setTimeout(() => { this.container.classList.remove('is-visible'); }, 300);
   }
 
   destroy() {

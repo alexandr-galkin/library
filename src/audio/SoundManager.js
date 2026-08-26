@@ -70,18 +70,11 @@ export class SoundManager {
 
   playWrong() { this.play(180, 0.25, 'sawtooth', 0.04); }
 
-  playCombo() {
-    this.play(660, 0.15, 'sine', 0.08);
-    this.schedule(() => this.play(880, 0.15, 'sine', 0.08), 80);
-  }
-
   playLevelComplete() {
     [440, 550, 660, 880].forEach((frequency, index) => {
       this.schedule(() => this.play(frequency, 0.25, 'sine', 0.1), index * 100);
     });
   }
-
-  playTimerWarning() { this.play(660, 0.08, 'square', 0.04); }
 
   destroy() {
     for (const timeout of this.timeouts) this.window.clearTimeout(timeout);

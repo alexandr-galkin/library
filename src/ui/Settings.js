@@ -18,60 +18,6 @@ export class Settings {
     this.cleanupListeners();
     const locale = getLocale();
     this.container.innerHTML = `
-      <style>
-        .language-setting .language-options {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 4px;
-          min-width: 190px;
-          border: 1px solid rgba(255,255,255,.10);
-          border-radius: 12px;
-          background: rgba(8,10,14,.72);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,.04), 0 6px 20px rgba(0,0,0,.18);
-        }
-        .language-setting .language-option {
-          appearance: none;
-          -webkit-appearance: none;
-          flex: 1 1 0;
-          min-width: 0;
-          min-height: 42px;
-          padding: 0 14px;
-          border: 1px solid transparent;
-          border-radius: 9px;
-          background: transparent;
-          color: rgba(255,255,255,.52);
-          font: inherit;
-          font-size: 12px;
-          font-weight: 700;
-          letter-spacing: .08em;
-          text-transform: uppercase;
-          cursor: pointer;
-          transition: color .18s ease, background .18s ease, border-color .18s ease, box-shadow .18s ease, transform .12s ease;
-          -webkit-tap-highlight-color: transparent;
-        }
-        .language-setting .language-option:hover {
-          color: rgba(255,255,255,.88);
-          background: rgba(255,255,255,.055);
-        }
-        .language-setting .language-option:active {
-          transform: scale(.97);
-        }
-        .language-setting .language-option.active {
-          color: #fff;
-          border-color: rgba(56,189,248,.34);
-          background: linear-gradient(180deg, rgba(56,189,248,.18), rgba(139,92,246,.13));
-          box-shadow: 0 0 18px rgba(56,189,248,.10), inset 0 1px 0 rgba(255,255,255,.10);
-        }
-        .language-setting .language-option:focus-visible {
-          outline: 2px solid rgba(56,189,248,.8);
-          outline-offset: 2px;
-        }
-        @media (max-width: 560px) {
-          .language-setting .language-options { min-width: 150px; }
-          .language-setting .language-option { min-height: 40px; padding: 0 9px; font-size: 11px; }
-        }
-      </style>
       <div class="menu-container">
         <div class="menu-background"><div class="menu-particles"></div></div>
         <div class="settings-content entered">
@@ -104,8 +50,8 @@ export class Settings {
         const key = toggle.dataset.key;
         const value = toggle.classList.toggle('active');
         this.onSettingChanged(key, value);
-        toggle.style.transform = 'scale(0.9)';
-        setTimeout(() => { toggle.style.transform = 'scale(1)'; }, 150);
+        toggle.classList.add('is-pressed');
+        setTimeout(() => { toggle.classList.remove('is-pressed'); }, 150);
       };
       toggle.addEventListener('click', handler);
       this.eventListeners.push({ element: toggle, handler });
@@ -139,23 +85,17 @@ export class Settings {
   }
 
   show() {
-    this.container.style.display = 'flex';
+    this.container.classList.add('is-visible');
     const content = this.container.querySelector('.settings-content');
     content?.classList.add('entered');
-    if (content) {
-      content.style.opacity = '1';
-      content.style.transform = 'translateY(0)';
-    }
   }
 
   hide() {
     const content = this.container.querySelector('.settings-content');
     if (content) {
       content.classList.remove('entered');
-      content.style.opacity = '0';
-      content.style.transform = 'translateY(20px)';
     }
-    setTimeout(() => { this.container.style.display = 'none'; }, 300);
+    setTimeout(() => { this.container.classList.remove('is-visible'); }, 300);
   }
 
   destroy() {

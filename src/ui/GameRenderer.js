@@ -58,7 +58,7 @@ export class GameRenderer {
     this.elements.hudTime.textContent = `${min}:${sec}`;
     this.elements.hudTime.classList.toggle("timer-warning", total > 0 && seconds <= Math.max(10, total * 0.2));
   }
-  setRule() { this.elements.ruleText.textContent = t("rules.sortByColor"); this.elements.ruleSub.textContent = `${t("hud.library")} · ${t("hud.topBook")}`; }
+  setRule() { this.elements.ruleText.textContent = t("rules.sortByColor"); this.elements.ruleSub.textContent = `${t("hud.library")} · ${t("hud.topBook")}`; this.elements.ruleText.parentElement?.setAttribute("data-kicker", t("theme.sortingRule")); }
   renderContainers(containers, objects = []) {
     const byId = new Map(objects.map((object) => [object.uid, object])); const fragment = this.document.createDocumentFragment();
     for (const container of containers) { const element = this.document.createElement("div"); element.className = "shelf-container"; if (container.type === "empty") element.classList.add("empty-shelf"); element.dataset.id = container.id; element.dataset.capacity = String(container.capacity); const items = this.document.createElement("div"); items.className = "shelf-items";
