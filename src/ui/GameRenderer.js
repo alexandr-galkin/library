@@ -1,5 +1,6 @@
 import { CleanupManager } from "../core/CleanupManager.js";
 import { t } from "../i18n/index.js";
+import { getLiteraryFactForLevel } from "../content/LiteraryFacts.js";
 
 export class GameRenderer {
   constructor({ app, theme, documentRef = document, actions = {} } = {}) {
@@ -13,7 +14,7 @@ export class GameRenderer {
     this.timeouts = new Set();
     this.build();
   }
-  build() { this.buildBackground(); this.buildTable(); this.buildHUD(); this.buildRuleBanner(); this.buildGameZones(); this.buildOverlays(); }
+  build() { this.buildBackground(); this.buildTable(); this.buildHUD(); this.buildRuleBanner(); this.buildFactCard(); this.buildGameZones(); this.buildOverlays(); }
   buildBackground() {
     const background = this.document.createElement("div"); background.className = "library-bg"; this.elements.bg = background; this.theme.renderBackground(background); this.app.append(background);
   }
@@ -34,6 +35,14 @@ export class GameRenderer {
   buildRuleBanner() {
     const banner = this.document.createElement("div"); banner.className = "rule-banner"; const title = this.document.createElement("h2"); title.id = "rule-text"; const subtitle = this.document.createElement("div"); subtitle.className = "sub"; subtitle.id = "rule-sub"; banner.append(title, subtitle); this.elements.ruleBanner = banner; this.elements.ruleText = title; this.elements.ruleSub = subtitle; this.app.append(banner);
   }
+  buildFactCard() {
+    const card = this.document.createElement("aside"); card.className = "literary-fact-card"; card.setAttribute("aria-label", t("facts.ariaLabel"));
+    const kicker = this.document.createElement("div"); kicker.className = "literary-fact-kicker"; kicker.textContent = t("facts.kicker");
+    const title = this.document.createElement("div"); title.className = "literary-fact-title"; title.textContent = t("facts.title");
+    const text = this.document.createElement("p"); text.className = "literary-fact-text";
+    const source = this.document.createElement("div"); source.className = "literary-fact-source";
+    card.append(kicker, title, text, source); this.elements.factCard = card; this.elements.factText = text; this.elements.factSource = source; this.app.append(card);
+  }
   buildGameZones() {
     this.elements.objectsZone = this.document.createElement("div"); this.elements.objectsZone.className = "objects-zone"; this.elements.objectsZone.hidden = true;
     this.elements.containersZone = this.document.createElement("div"); this.elements.containersZone.className = "containers-zone"; this.elements.table.append(this.elements.objectsZone, this.elements.containersZone);
@@ -50,7 +59,14 @@ export class GameRenderer {
     for (const [action, label, className] of buttons) { const button = this.document.createElement("button"); button.className = `menu-btn ${className}`; button.type = "button"; button.dataset.action = action; button.textContent = label; this.cleanup.listen(button, "click", () => { if (action !== "revive") this.hideOverlay(overlay); this.actions[`on${action[0].toUpperCase()}${action.slice(1)}`]?.(button); }); card.append(button); }
     overlay.append(card); this.app.append(overlay); return overlay;
   }
-  updateHUD(level, difficulty, score, moves = 0) { this.elements.hudLevel.textContent = String(level); this.elements.hudDiff.textContent = String(difficulty); this.elements.hudScore.textContent = String(score); this.elements.hudMoves.textContent = String(moves); }
+  updateHUD(level, difficulty, score, moves = 0) { this.elements.hudLevel.textContent = String(level); this.elements.hudDiff.textContent = String(difficulty); this.elements.hudScore.textContent = String(score); this.elements.hudMoves.textContent = String(moves); this.updateFact(level); }
+  updateFact(level) {
+    if (!this.elements.factCard || !this.elements.factText || !this.elements.factSource) return;
+    const fact = getLiteraryFactForLevel(level);
+    this.elements.factCard.dataset.level = String(Math.max(1, Math.floor(Number(level) || 1)));
+    this.elements.factText.textContent = fact.text;
+    this.elements.factSource.textContent = fact.source;
+  }
   setTimer(remaining, total = 0) {
     if (!this.elements.hudTime) return;
     const seconds = Math.max(0, Math.floor(Number(remaining) || 0));

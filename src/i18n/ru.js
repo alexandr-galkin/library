@@ -9,6 +9,7 @@ export default {
   },
   level: { freeShelf: 'СВОБОДНАЯ ПОЛКА', shelf: 'ПОЛКА {number}' },
   rules: { sortByColor: 'СОБЕРИ КАЖДЫЙ ЦВЕТ НА ОДНОЙ ПОЛКЕ' },
+  facts: { ariaLabel: 'Интересный литературный факт', kicker: 'ЗНАЕТЕ ЛИ ВЫ?', title: 'История книги' },
   overlays: { failTitle: 'ВРЕМЯ ВЫШЛО', failText: 'Посмотри короткую рекламу и получи ещё 30 секунд', revive: 'ЕЩЁ 30 СЕКУНД', adLoading: 'ЗАГРУЗКА РЕКЛАМЫ…', retry: 'НАЧАТЬ ЗАНОВО', menu: 'В МЕНЮ', pauseTitle: '⏸ ПАУЗА', pauseText: 'Головоломка приостановлена', resume: 'ПРОДОЛЖИТЬ', settings: 'НАСТРОЙКИ' },
   settings: { title: '⚙ НАСТРОЙКИ', subtitle: 'Настрой игру под себя', sound: 'Звук', soundDescription: 'Звуковые эффекты', animations: 'Анимации', animationsDescription: 'Визуальные эффекты', reduced: 'Уменьшенная анимация', reducedDescription: 'Для слабых устройств', language: 'Язык', languageDescription: 'Язык интерфейса', russian: 'Русский', english: 'Английский', backToGame: 'Вернуться в игру', backToMenu: 'Назад в меню' },
   complete: { kicker: 'БИБЛИОТЕКА: КНИЖНЫЙ ПОРЯДОК • УРОВЕНЬ ПРОЙДЕН', title: 'КНИГИ РАЗЛОЖЕНЫ', levelComplete: 'Уровень {level} пройден', stars: 'Звёзды', baseScore: 'Базовые очки', timeBonus: 'Бонус времени', timeLeft: 'Осталось времени', total: 'ИТОГО', next: 'СЛЕДУЮЩИЙ УРОВЕНЬ' },

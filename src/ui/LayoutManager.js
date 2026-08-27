@@ -96,6 +96,7 @@ export class LayoutManager {
     const root = this.document.documentElement;
     const values = {
       '--game-width': `${layout.gameWidth}px`, '--game-height': `${layout.gameHeight}px`,
+      '--game-side-offset': `${Math.round(layout.gameWidth / 2)}px`,
       '--shelf-height': `${layout.shelfHeight}px`, '--shelf-gap': `${layout.shelfGap}px`,
       '--shelf-columns': String(layout.columns), '--shelf-rows': String(layout.rows),
       '--book-width': `${layout.bookWidth}px`, '--book-height': `${layout.bookHeight}px`,
@@ -117,6 +118,6 @@ export class LayoutManager {
     if (this.resizeHandler) this.window?.removeEventListener?.('resize', this.resizeHandler);
     if (this.orientationHandler) this.window?.removeEventListener?.('orientationchange', this.orientationHandler);
     this.resizeHandler = null; this.orientationHandler = null;
-    for (const property of ['--shelf-columns','--shelf-rows','--game-width','--game-height','--shelf-height','--shelf-gap','--book-width','--book-height','--shelf-content-height','--book-stack-offset','--book-lift']) this.document.documentElement.style.removeProperty(property);
+    for (const property of ['--shelf-columns','--shelf-rows','--game-width','--game-height','--game-side-offset','--shelf-height','--shelf-gap','--book-width','--book-height','--shelf-content-height','--book-stack-offset','--book-lift']) this.document.documentElement.style.removeProperty(property);
   }
 }
