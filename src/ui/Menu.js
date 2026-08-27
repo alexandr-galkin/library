@@ -8,11 +8,16 @@ export class Menu {
     this.container = document.createElement('div');
     this.container.className = 'menu-overlay';
     this.eventListeners = [];
+    this.enterFrame = null;
+    this.enterFallback = null;
+    this.hideTimeout = null;
     this.render();
   }
 
   render() {
     const state = this.getState();
+    const wasVisible = this.container.classList.contains('is-visible');
+    this.cancelEnterTransition();
     this.cleanupListeners();
 
     this.container.innerHTML = `
@@ -70,6 +75,7 @@ export class Menu {
       this.eventListeners.push({ element: settingsBtn, handler });
     }
 
+    if (wasVisible) this.enter();
   }
 
   cleanupListeners() {
@@ -77,17 +83,57 @@ export class Menu {
     this.eventListeners = [];
   }
 
+  cancelEnterTransition() {
+    if (this.enterFrame !== null) {
+      cancelAnimationFrame(this.enterFrame);
+      this.enterFrame = null;
+    }
+    if (this.enterFallback !== null) {
+      clearTimeout(this.enterFallback);
+      this.enterFallback = null;
+    }
+  }
+
+  enter() {
+    this.cancelEnterTransition();
+
+    const content = this.container.querySelector('.menu-content');
+    if (!content) return;
+
+    let entered = false;
+    const addEnteredClass = () => {
+      if (entered) return;
+      entered = true;
+      this.enterFrame = null;
+      this.enterFallback = null;
+      content.classList.add('entered');
+    };
+
+    this.enterFrame = requestAnimationFrame(addEnteredClass);
+    this.enterFallback = setTimeout(addEnteredClass, 50);
+  }
+
   show() {
+    if (this.hideTimeout !== null) {
+      clearTimeout(this.hideTimeout);
+      this.hideTimeout = null;
+    }
     this.container.classList.add('is-visible');
-    requestAnimationFrame(() => this.container.querySelector('.menu-content')?.classList.add('entered'));
+    this.enter();
   }
 
   hide() {
+    this.cancelEnterTransition();
     this.container.querySelector('.menu-content')?.classList.remove('entered');
-    setTimeout(() => { this.container.classList.remove('is-visible'); }, 300);
+    this.hideTimeout = setTimeout(() => {
+      this.hideTimeout = null;
+      this.container.classList.remove('is-visible');
+    }, 300);
   }
 
   destroy() {
+    this.cancelEnterTransition();
+    if (this.hideTimeout !== null) clearTimeout(this.hideTimeout);
     this.cleanupListeners();
     this.container.remove();
   }

@@ -750,8 +750,8 @@ canvas#particles {
 @media (max-width: 425px) {
   .hud-bar {
     display: flex;
-    flex-direction: column;
   }
+
   .menu-button {
     min-height: 0;
     padding: 6px 10px;
@@ -1673,6 +1673,9 @@ body {
 
 /* Mobile: make the shelf columns visibly taller without changing desktop layout. */
 @media (max-width: 600px) {
+  .rule-banner {
+    top: 85%;
+  }
   .shelf-container {
     min-height: clamp(150px, 24vh, 210px);
   }
@@ -1680,6 +1683,19 @@ body {
   .book-item:hover {
     transform: none;
     filter: none;
+  }
+  .hud-item {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+  .hud-actions {
+    flex: 0;
+  }
+  .menu-button {
+    min-height: 0;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 16px;
   }
 }
 
